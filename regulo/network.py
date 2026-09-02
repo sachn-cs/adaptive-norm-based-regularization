@@ -12,7 +12,7 @@ The network is defined by a list of layer widths
 the output layer is linear (no activation).  This is the standard
 architecture for regression; for classification the output is passed
 through a softmax in the loss function (see
-:class:`~anbr.losses.CrossEntropyLoss`).
+:class:`~regulo.losses.CrossEntropyLoss`).
 
 Back-propagation
 ----------------
@@ -117,7 +117,7 @@ class FullyConnectedNetwork:
     bias row-vectors of shape ``(1, h_1)``, ..., ``(1, q)``.  Layers
     1 through ``k`` apply ``ReLU(z) = max(z, 0)``; the output layer
     applies the identity (for regression) or hands its raw logits off
-    to :class:`~anbr.losses.CrossEntropyLoss` for classification.
+    to :class:`~regulo.losses.CrossEntropyLoss` for classification.
 
     Weight and bias shapes
     ----------------------
@@ -278,7 +278,7 @@ class FullyConnectedNetwork:
     def get_params(self) -> Dict[str, List[np.ndarray]]:
         """Return deep copies of all current parameters.
 
-        Used by :class:`~anbr.trainer.Trainer` to snapshot parameters
+        Used by :class:`~regulo.trainer.Trainer` to snapshot parameters
         for early-stopping restore.  Deep copies ensure that subsequent
         training does not mutate the saved snapshot.
 
@@ -293,9 +293,9 @@ class FullyConnectedNetwork:
     def set_params(self, params: Dict[str, List[np.ndarray]]) -> None:
         """Replace all parameters (deep-copied from *params*).
 
-        Used by :class:`~anbr.trainer.Trainer` to restore the best
+        Used by :class:`~regulo.trainer.Trainer` to restore the best
         parameters during early stopping, and by
-        :class:`~anbr.optimizer.Adam` to apply parameter updates.
+        :class:`~regulo.optimizer.Adam` to apply parameter updates.
 
         Args:
             params: Dictionary with ``"weights"`` and ``"biases"`` lists

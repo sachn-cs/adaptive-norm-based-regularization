@@ -5,13 +5,13 @@ including:
 
 * Mini-batch sampling with per-epoch shuffling.
 * Forward pass, loss computation, and regularizer penalty.
-* Back-propagation and parameter update via :class:`~anbr.optimizer.Adam`.
+* Back-propagation and parameter update via :class:`~regulo.optimizer.Adam`.
 * Optional validation loss tracking and early stopping.
 * Verbose progress printing.
 
 Covridge / Sparridge layer handling
 ------------------------------------
-:class:`~anbr.regularizers.Covridge` and :class:`~anbr.regularizers.Sparridge`
+:class:`~regulo.regularizers.Covridge` and :class:`~regulo.regularizers.Sparridge`
 are applied **only to the first weight matrix** because the empirical Gram
 matrix ``C_{delta,n}`` is defined over the input dimension and therefore
 only matches ``W^{(1)}``.  This is a design assumption: the paper defines
@@ -53,17 +53,17 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-import anbr.losses as losses
-from anbr.network import FullyConnectedNetwork
-from anbr.optimizer import Adam
-from anbr.regularizers import Covridge, Regularizer, Sparridge
+import regulo.losses as losses
+from regulo.network import FullyConnectedNetwork
+from regulo.optimizer import Adam
+from regulo.regularizers import Covridge, Regularizer, Sparridge
 
 
 class Trainer:
     """End-to-end trainer for the manual NumPy network.
 
-    Ties together a :class:`~anbr.network.FullyConnectedNetwork`, a loss
-    function, a regularizer, and an :class:`~anbr.optimizer.Adam`
+    Ties together a :class:`~regulo.network.FullyConnectedNetwork`, a loss
+    function, a regularizer, and an :class:`~regulo.optimizer.Adam`
     optimizer into a single :meth:`fit` / :meth:`predict` interface.
 
     The trainer is **not** reusable for multiple independent runs without
@@ -144,7 +144,7 @@ class Trainer:
         4. Adds the analytic regularizer gradient to every weight
            gradient (geometry-aware regularizers modify only
            ``weights[0]``; see the module docstring).
-        5. Applies one :meth:`~anbr.optimizer.Adam.step`.
+        5. Applies one :meth:`~regulo.optimizer.Adam.step`.
 
         Input shape flexibility
         -----------------------

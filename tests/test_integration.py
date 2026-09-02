@@ -3,12 +3,12 @@
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-import anbr.losses as losses
-import anbr.metrics as metrics
-from anbr.cv import grid_search_cv
-from anbr.network import FullyConnectedNetwork
-from anbr.optimizer import Adam
-from anbr.regularizers import (
+import regulo.losses as losses
+import regulo.metrics as metrics
+from regulo.cv import grid_search_cv
+from regulo.network import FullyConnectedNetwork
+from regulo.optimizer import Adam
+from regulo.regularizers import (
     Covridge,
     ElasticNet,
     Lasso,
@@ -16,7 +16,7 @@ from anbr.regularizers import (
     Ridge,
     Sparridge,
 )
-from anbr.trainer import Trainer
+from regulo.trainer import Trainer
 
 
 def test_train_regression_decreases_loss():

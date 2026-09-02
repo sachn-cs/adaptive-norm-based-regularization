@@ -87,7 +87,7 @@ class MSELoss:
         ``(2 / y_pred.size) * (y_pred - y_true)`` -- an array with the
         same shape as ``y_pred`` and already divided by ``N`` (total
         scalar elements).  It can be fed directly into
-        :meth:`~anbr.network.FullyConnectedNetwork.backward` without
+        :meth:`~regulo.network.FullyConnectedNetwork.backward` without
         further rescaling.
 
         Args:

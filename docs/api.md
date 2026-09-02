@@ -1,6 +1,6 @@
 # API Reference
 
-## Regularizers (`anbr.regularizers`)
+## Regularizers (`regulo.regularizers`)
 
 ### `class Regularizer(ABC)`
 
@@ -72,7 +72,7 @@ Gradient: `2 λ_1 C_{δ,n} W + γ sign(W)`
 
 ---
 
-## Losses (`anbr.losses`)
+## Losses (`regulo.losses`)
 
 ### `class MSELoss`
 
@@ -94,7 +94,7 @@ Gradient `(softmax(logits) - onehot(y_true)) / n_samples`.
 
 ---
 
-## Network (`anbr.network`)
+## Network (`regulo.network`)
 
 ### `class FullyConnectedNetwork`
 
@@ -116,7 +116,7 @@ Set parameters from a dictionary.
 
 ---
 
-## Optimizer (`anbr.optimizer`)
+## Optimizer (`regulo.optimizer`)
 
 ### `class Adam`
 
@@ -130,7 +130,7 @@ Clear all moment estimates and step counter.
 
 ---
 
-## Data (`anbr.data`)
+## Data (`regulo.data`)
 
 ### `make_dgp(n, p, k, rho, sigma_noise, tau=1.0, nonlinear=False, random_state=None)`
 Generate synthetic data with the paper's DGP specification.
@@ -158,7 +158,7 @@ Returns `(x_train, x_test, y_train, y_test, scaler)`.
 
 ---
 
-## Metrics (`anbr.metrics`)
+## Metrics (`regulo.metrics`)
 
 ### `mean_squared_error(y_true, y_pred) -> float`
 ### `mean_absolute_error(y_true, y_pred) -> float`
@@ -168,7 +168,7 @@ Returns `(x_train, x_test, y_train, y_test, scaler)`.
 
 ---
 
-## Trainer (`anbr.trainer`)
+## Trainer (`regulo.trainer`)
 
 ### `class Trainer`
 
@@ -195,7 +195,7 @@ Generate predictions on new data.
 
 ---
 
-## Cross-Validation (`anbr.cv`)
+## Cross-Validation (`regulo.cv`)
 
 ### `build_regularizer(method, hp, x_train, delta=1e-4) -> Regularizer`
 Instantiate a regularizer from a method name and hyperparameter dict.

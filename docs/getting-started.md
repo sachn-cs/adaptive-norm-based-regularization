@@ -60,11 +60,11 @@ GSE9476 leukemia dataset.
 
 ```python
 import numpy as np
-from anbr.network import Network
-from anbr.losses import MSELoss
-from anbr.optimizer import Adam
-from anbr.regularizers import Covridge
-from anbr.trainer import Trainer
+from regulo.network import Network
+from regulo.losses import MSELoss
+from regulo.optimizer import Adam
+from regulo.regularizers import Covridge
+from regulo.trainer import Trainer
 
 # Generate sample data
 np.random.seed(42)
@@ -103,7 +103,7 @@ print("Predictions shape:", predictions.shape)
 
 ### Import Errors
 
-If you see `ModuleNotFoundError: No module named 'anbr'`, ensure you've
+If you see `ModuleNotFoundError: No module named 'regulo'`, ensure you've
 installed in editable mode:
 
 ```bash

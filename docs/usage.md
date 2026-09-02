@@ -32,12 +32,12 @@ pytest tests/test_integration.py -v
 
 ```python
 import numpy as np
-from anbr.data import make_dgp1
-from anbr.network import FullyConnectedNetwork
-from anbr.optimizer import Adam
-from anbr.regularizers import Ridge
-from anbr.trainer import Trainer
-import anbr.losses as losses
+from regulo.data import make_dgp1
+from regulo.network import FullyConnectedNetwork
+from regulo.optimizer import Adam
+from regulo.regularizers import Ridge
+from regulo.trainer import Trainer
+import regulo.losses as losses
 
 # Data
 x, y = make_dgp1(rho=0.25, sigma_noise=0.1, random_state=42)
@@ -68,7 +68,7 @@ preds = trainer.predict(x_test)
 ### Classification Example
 
 ```python
-from anbr.losses import CrossEntropyLoss
+from regulo.losses import CrossEntropyLoss
 
 net = FullyConnectedNetwork([p, 8, 4, n_classes])
 opt = Adam(learning_rate=1e-3)
@@ -86,8 +86,8 @@ class_preds = np.argmax(logits, axis=1)
 ## Hyperparameter Search
 
 ```python
-from anbr.cv import grid_search_cv
-import anbr.losses as losses
+from regulo.cv import grid_search_cv
+import regulo.losses as losses
 
 param_grid = [
     {"lambda1": a, "lambda2": b}
@@ -131,7 +131,7 @@ python run_real_data.py
 Subclass `Regularizer` and implement `penalty` and `gradient`:
 
 ```python
-from anbr.regularizers import Regularizer
+from regulo.regularizers import Regularizer
 import numpy as np
 
 class HuberRegularizer(Regularizer):

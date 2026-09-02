@@ -24,7 +24,7 @@ J̃(θ; X, y) = J(θ) + λ Ω(W)
 
 where `J(θ)` is the empirical loss (MSE or cross-entropy) and `Ω(W)` is a penalty on the weight matrices.
 
-**Implementation:** `anbr/trainer.py` computes `total_loss = loss + reg_penalty` for each mini-batch.
+**Implementation:** `regulo/trainer.py` computes `total_loss = loss + reg_penalty` for each mini-batch.
 
 ---
 
@@ -38,7 +38,7 @@ where `J(θ)` is the empirical loss (MSE or cross-entropy) and `Ω(W)` is a pena
 
 Gradient: `∇_W Ω_ridge = 2 W`
 
-**Implementation:** `anbr/regularizers.py::Ridge`
+**Implementation:** `regulo/regularizers.py::Ridge`
 
 ### 3.2 Lasso
 
@@ -48,7 +48,7 @@ Gradient: `∇_W Ω_ridge = 2 W`
 
 Subgradient: `∇_W Ω_lasso = sign(W)` (with `sign(0)=0`)
 
-**Implementation:** `anbr/regularizers.py::Lasso`
+**Implementation:** `regulo/regularizers.py::Lasso`
 
 ### 3.3 Elastic Net
 
@@ -56,7 +56,7 @@ Subgradient: `∇_W Ω_lasso = sign(W)` (with `sign(0)=0`)
 Ω_en(W) = α γ ‖W‖_1 + (1-α)/2 ‖W‖_F^2
 ```
 
-**Implementation:** `anbr/regularizers.py::ElasticNet`
+**Implementation:** `regulo/regularizers.py::ElasticNet`
 
 ---
 
@@ -71,7 +71,7 @@ C_n = (1/n) H^T H
 C_{δ,n} = C_n + δ I_p,   δ > 0
 ```
 
-**Implementation:** `anbr/cv.py::build_regularizer` computes `c_n = (x_train.T @ x_train) / n` and `c_delta_n = c_n + delta * np.eye(p)`.
+**Implementation:** `regulo/cv.py::build_regularizer` computes `c_n = (x_train.T @ x_train) / n` and `c_delta_n = c_n + delta * np.eye(p)`.
 
 ### 4.2 Covridge
 
@@ -92,7 +92,7 @@ Gradient:
 ∇_W Ω_covridge = 2 λ_1 C_{δ,n} W + 2 λ_2 W
 ```
 
-**Implementation:** `anbr/regularizers.py::Covridge`
+**Implementation:** `regulo/regularizers.py::Covridge`
 - `_c_sqrt` is precomputed via eigendecomposition.
 - `penalty` computes `‖C^{1/2} W‖_F^2` directly.
 - `gradient` computes `2 λ_1 C W + 2 λ_2 W` using `C = _c_sqrt @ _c_sqrt`.
@@ -108,7 +108,7 @@ Gradient (subgradient):
 ∇_W Ω_sparridge = 2 λ_1 C_{δ,n} W + γ sign(W)
 ```
 
-**Implementation:** `anbr/regularizers.py::Sparridge`
+**Implementation:** `regulo/regularizers.py::Sparridge`
 
 ---
 
@@ -124,7 +124,7 @@ h^{(L)} = ReLU(z^{(L)})
 ŷ = z^{(L+1)} = W^{(L+1)} h^{(L)} + b^{(L+1)}
 ```
 
-**Implementation:** `anbr/network.py::FullyConnectedNetwork.forward`
+**Implementation:** `regulo/network.py::FullyConnectedNetwork.forward`
 
 ---
 
@@ -138,7 +138,7 @@ Given the gradient of the loss w.r.t. the output `δ^{(L+1)} = ∂J/∂ŷ`, the 
 δ^{(l-1)} = (δ^{(l)} (W^{(l)})^T) ⊙ I(z^{(l-1)} > 0)
 ```
 
-**Implementation:** `anbr/network.py::FullyConnectedNetwork.backward`
+**Implementation:** `regulo/network.py::FullyConnectedNetwork.backward`
 
 **Important design choice:** The `1/n` factor is included in the loss backward pass (`MSELoss.backward` and `CrossEntropyLoss.backward`), so the network backward pass computes the unscaled matrix product `a_prev.T @ delta`.
 
@@ -156,7 +156,7 @@ v̂_t = v_t / (1 - β_2^t)
 p_{t+1} = p_t - η m̂_t / (√v̂_t + ε)
 ```
 
-**Implementation:** `anbr/optimizer.py::Adam`
+**Implementation:** `regulo/optimizer.py::Adam`
 
 ---
 
@@ -169,7 +169,7 @@ J_MSE = (1/n) Σ_i (ŷ_i - y_i)^2
 ∂J/∂ŷ = (2/n) (ŷ - y)
 ```
 
-**Implementation:** `anbr/losses.py::MSELoss`
+**Implementation:** `regulo/losses.py::MSELoss`
 
 ### 8.2 Softmax Cross-Entropy
 
@@ -179,7 +179,7 @@ where p_{i,c} = exp(z_{i,c}) / Σ_{c'} exp(z_{i,c'})
 ∂J/∂z = (1/n) (P - Y_onehot)
 ```
 
-**Implementation:** `anbr/losses.py::CrossEntropyLoss`
+**Implementation:** `regulo/losses.py::CrossEntropyLoss`
 
 ---
 
@@ -207,7 +207,7 @@ Nonlinear:
 y = Σ_{j=1}^k θ_j^* sin(x_j) + ε
 ```
 
-**Implementation:** `anbr/data.py::make_dgp`
+**Implementation:** `regulo/data.py::make_dgp`
 
 ---
 

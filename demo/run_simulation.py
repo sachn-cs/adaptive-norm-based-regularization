@@ -5,21 +5,18 @@ Full paper uses 100 Monte Carlo replications.  By default this script runs
 """
 
 import argparse
-import sys
 from typing import Dict, List
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-sys.path.insert(0, "..")
-
-import anbr.losses as losses
-import anbr.metrics as metrics
-from anbr.cv import build_regularizer, grid_search_cv
-from anbr.data import make_dgp1, make_dgp2
-from anbr.network import FullyConnectedNetwork
-from anbr.optimizer import Adam
-from anbr.trainer import Trainer
+import regulo.losses as losses
+import regulo.metrics as metrics
+from regulo.cv import build_regularizer, grid_search_cv
+from regulo.data import make_dgp1, make_dgp2
+from regulo.network import FullyConnectedNetwork
+from regulo.optimizer import Adam
+from regulo.trainer import Trainer
 
 METHODS = ["none", "ridge", "lasso", "elastic_net", "covridge", "sparridge"]
 

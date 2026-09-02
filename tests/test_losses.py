@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from anbr.losses import CrossEntropyLoss, MSELoss
+from regulo.losses import CrossEntropyLoss, MSELoss
 
 
 def test_mse_perfect_predictions():

@@ -8,7 +8,7 @@ two methods:
   empirical loss.
 * :meth:`Regularizer.gradient` -- analytical gradient ``nabla_W Omega(W)``
   of the penalty with respect to the weight matrix, used by
-  :class:`~anbr.trainer.Trainer` during backpropagation.
+  :class:`~regulo.trainer.Trainer` during backpropagation.
 
 The concrete penalties map directly to equations in Qasim & Javed:
 
@@ -25,7 +25,7 @@ Class                       Paper equation
 Design pattern
 --------------
 All regularizers follow the Strategy pattern: they implement the same
-``penalty`` / ``gradient`` interface so that :class:`~anbr.trainer.Trainer`
+``penalty`` / ``gradient`` interface so that :class:`~regulo.trainer.Trainer`
 can dispatch them without type checks for the common case (Ridge, Lasso,
 ElasticNet, NoRegularizer).  Covridge and Sparridge require a special
 branch in the trainer because the Gram matrix ``C_{delta,n}`` is defined
@@ -67,7 +67,7 @@ class Regularizer(ABC):
     """Abstract base class for weight-matrix regularizers.
 
     All regularizers share the same interface so that
-    :class:`~anbr.trainer.Trainer` can dispatch them uniformly.  Subclasses
+    :class:`~regulo.trainer.Trainer` can dispatch them uniformly.  Subclasses
     must implement :meth:`penalty` and :meth:`gradient`; both are pure
     functions of the weight matrix and have no side effects.
 
@@ -121,7 +121,7 @@ class NoRegularizer(Regularizer):
     """No-op regularizer used as the unregularized baseline.
 
     Always returns zero penalty and zero gradient so that
-    :class:`~anbr.trainer.Trainer` can iterate over regularizer instances
+    :class:`~regulo.trainer.Trainer` can iterate over regularizer instances
     without special-casing the absence of regularization.  This
     eliminates the need for ``if reg is None`` branches in the training
     loop.

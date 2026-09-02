@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from anbr.regularizers import (
+from regulo.regularizers import (
     Covridge,
     ElasticNet,
     Lasso,

@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from anbr.data import make_dgp, make_dgp1, make_dgp2, make_dgp3
+from regulo.data import make_dgp, make_dgp1, make_dgp2, make_dgp3
 
 
 def test_dgp_shape():

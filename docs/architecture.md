@@ -9,7 +9,7 @@ This package is a pure-Python, NumPy-based reproduction of the paper's empirical
 ## Module Map
 
 ```
-anbr/
+regulo/
 ├── regularizers.py   # Penalty definitions and subgradients
 ├── losses.py         # MSE and cross-entropy with analytical derivatives
 ├── network.py        # Feedforward ReLU network, forward/backward

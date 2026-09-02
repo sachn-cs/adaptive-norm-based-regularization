@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from anbr.metrics import (
+from regulo.metrics import (
     balanced_accuracy_score,
     mean_absolute_error,
     mean_squared_error,

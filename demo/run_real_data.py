@@ -6,20 +6,17 @@ Runs all six regularisation methods on the UCI Energy Efficiency dataset
 10x5-fold cross-validation as described in the paper.
 """
 
-import sys
 from typing import Dict, List
 
 import numpy as np
 
-sys.path.insert(0, "..")
-
-import anbr.losses as losses
-import anbr.metrics as metrics
-from anbr.cv import build_regularizer, grid_search_cv
-from anbr.data import load_energy_data, load_leukemia_data
-from anbr.network import FullyConnectedNetwork
-from anbr.optimizer import Adam
-from anbr.trainer import Trainer
+import regulo.losses as losses
+import regulo.metrics as metrics
+from regulo.cv import build_regularizer, grid_search_cv
+from regulo.data import load_energy_data, load_leukemia_data
+from regulo.network import FullyConnectedNetwork
+from regulo.optimizer import Adam
+from regulo.trainer import Trainer
 
 METHODS = ["none", "ridge", "lasso", "elastic_net", "covridge", "sparridge"]
 ENERGY_GRID = [0.001, 0.01, 0.1, 0.5, 0.9]

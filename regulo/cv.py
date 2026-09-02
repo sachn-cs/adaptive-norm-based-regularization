@@ -32,11 +32,11 @@ import numpy as np
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
-import anbr.losses as losses
-import anbr.metrics as metrics
-from anbr.network import FullyConnectedNetwork
-from anbr.optimizer import Adam
-from anbr.regularizers import (
+import regulo.losses as losses
+import regulo.metrics as metrics
+from regulo.network import FullyConnectedNetwork
+from regulo.optimizer import Adam
+from regulo.regularizers import (
     Covridge,
     ElasticNet,
     Lasso,
@@ -45,7 +45,7 @@ from anbr.regularizers import (
     Ridge,
     Sparridge,
 )
-from anbr.trainer import Trainer
+from regulo.trainer import Trainer
 
 # Expected hyperparameter keys for each regularizer method.
 _METHOD_HP_KEYS: Dict[str, List[str]] = {
@@ -95,7 +95,7 @@ def build_regularizer(
             reduce the geometry-awareness of Covridge/Sparridge.
 
     Returns:
-        A :class:`~anbr.regularizers.Regularizer` instance.
+        A :class:`~regulo.regularizers.Regularizer` instance.
 
     Raises:
         ValueError: If *method* is not recognised.

@@ -54,7 +54,7 @@ python demo/run_real_data.py       # Real datasets
 Implement the `Regularizer` interface:
 
 ```python
-from anbr.regularizers import Regularizer
+from regulo.regularizers import Regularizer
 
 class MyRegularizer(Regularizer):
     def __init__(self, my_param: float):
@@ -74,7 +74,7 @@ class MyRegularizer(Regularizer):
 Modify the layer sizes and activations:
 
 ```python
-from anbr.network import Network
+from regulo.network import Network
 
 # 3-layer network with different widths
 net = Network(
@@ -131,7 +131,7 @@ isort .
 ### How do I check types?
 
 ```bash
-mypy anbr tests demo
+mypy regulo tests demo
 ```
 
 ### How do I contribute?

@@ -5,7 +5,7 @@ first- and second-moment estimates, bias-corrected step sizes, and an
 explicit :meth:`reset` for re-training from scratch.
 
 The optimizer operates on dictionaries of parameter lists (matching the
-format returned by :meth:`~anbr.network.FullyConnectedNetwork.get_params`)
+format returned by :meth:`~regulo.network.FullyConnectedNetwork.get_params`)
 so it is agnostic to network architecture.
 
 References
@@ -117,7 +117,7 @@ class Adam:
             A new parameter dictionary with the same structure as
             *params*, containing the post-update arrays.  Callers are
             expected to overwrite their parameters with the returned
-            values (see :meth:`~anbr.network.FullyConnectedNetwork.set_params`).
+            values (see :meth:`~regulo.network.FullyConnectedNetwork.set_params`).
         """
         self.t += 1
         updated: Dict[str, List[np.ndarray]] = {}

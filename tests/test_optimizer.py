@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from anbr.optimizer import Adam
+from regulo.optimizer import Adam
 
 
 def test_adam_updates_weights():

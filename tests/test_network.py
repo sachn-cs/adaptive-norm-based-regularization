@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from anbr.network import FullyConnectedNetwork
+from regulo.network import FullyConnectedNetwork
 
 
 def test_forward_shape():
