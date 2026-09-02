@@ -1,109 +1,123 @@
-# Architecture Documentation
+# Architecture
 
 ## Overview
 
-This package is a pure-Python, NumPy-based reproduction of the paper's empirical methodology. Every algorithmic component is implemented from scratch to ensure maximal fidelity and transparency.
+**regulo** is a pure-Python, NumPy + SciPy reproduction of the
+paper's empirical methodology.  Every algorithmic component is
+implemented from scratch to ensure maximum transparency and
+reproducibility.
 
----
-
-## Module Map
+## Module map
 
 ```
 regulo/
-├── regularizers.py   # Penalty definitions and subgradients
-├── losses.py         # MSE and cross-entropy with analytical derivatives
-├── network.py        # Feedforward ReLU network, forward/backward
-├── optimizer.py      # Adam with first and second moment estimates
-├── data.py           # DGP generators and real-data loaders
-├── metrics.py        # Evaluation metrics
-├── trainer.py        # Epoch loop, mini-batching, early stopping
-└── cv.py             # k-fold cross-validation and grid search
+├── __init__.py     # public API re-exports + __version__
+├── penalty.py      # Penalty ABC + Ridge, Lasso, ElasticNet, Covridge, Sparridge, Void
+├── loss.py         # Loss ABC + Square, Softmax
+├── net.py          # MLP, xavier
+├── adam.py         # Adam optimizer
+├── score.py        # Metric ABC + Mse, Mae, Rmse, R2, Balanced
+├── data.py         # equicorr, synth (DGP generators)
+├── tune.py         # kfold, Scaler, resolve, search
+├── store.py        # save, load, meta (npz + json, no pickle)
+└── fit.py          # Runner (training loop)
 ```
 
----
-
-## Data Flow
+## Data flow
 
 ```
 [Data Source]
-    │
-    ▼
-[make_dgp / load_energy_data / load_leukemia_data]
-    │
-    ▼
-[Train / Val / Test Split]
-    │
-    ▼
-[StandardScaler.fit_transform on train]
-    │
-    ▼
-[C_{δ,n} Computation] ──→ [build_regularizer]
-    │                         │
-    │                         ▼
-    │                   [Covridge / Sparridge / Ridge / Lasso / ElasticNet]
-    │                         │
-    ▼                         ▼
-[FullyConnectedNetwork] ←── [Regularizer]
-    │
-    ▼
-[Trainer.fit]
-    │
-    ├── Mini-batch sampling
-    ├── Forward pass (caches z and a)
-    ├── Loss computation
-    ├── Regularizer penalty (first layer only for Covridge/Sparridge)
-    ├── Backward pass (loss grad + regularizer grad)
-    ├── Adam step
-    └── Validation / early stopping
-    │
-    ▼
-[Metrics: MSE, MAE, RMSE, R², balanced_accuracy]
+    |
+    v
+[synth(...) or user-provided X, y]
+    |
+    v
+[Scaler.fit_transform on train]
+    |
+    v
+[C_{delta, n}] --> [resolve(method, hp, x)]
+    |
+    v
+[Penalty subclass]   <--  Penalty.applies(layer)
+    |                       ^
+    v                       |
+[MLP.forward]               |
+    |                       |
+    v                       |
+[Runner.fit] ---------------+
+    |
+    +-- Mini-batch sampling
+    +-- Forward pass (cache_z, cache_a)
+    +-- Loss + penalty value (only where applies)
+    +-- Loss + penalty gradient (only where applies)
+    +-- Adam step
+    +-- NaN guard
+    +-- Validation / early stopping
+    |
+    v
+[Metrics: Mse, Mae, Rmse, R2, Balanced]
 ```
 
----
+## Key design decisions
 
-## Key Design Decisions
+### 1. Pure NumPy back-propagation
 
-### 1. Pure NumPy Backpropagation
+No PyTorch / TensorFlow / JAX.  Every gradient flows through
+hand-written code; weights are inspectable at every step.
 
-Instead of using PyTorch or TensorFlow, we implement backpropagation manually. This ensures:
-- Full control over regularizer gradient injection.
-- Exact matching of the paper's update equations.
-- No hidden framework defaults.
+### 2. Polymorphic Penalty dispatch
 
-**Trade-off:** Slower than framework implementations, but fully transparent.
+Covridge and Sparridge are applied **only to the first layer**
+via the :meth:`Penalty.applies` hook.  No ``isinstance`` checks
+in :class:`Runner` -- dispatch is uniformly polymorphic.
 
-### 2. Layer-wise Regularization
+### 3. Loss-side scaling
 
-The paper defines a single `C_{δ,n}` based on the input feature matrix. This matrix has shape `(p, p)`, matching the first-layer weight matrix `(p, h_1)`.
+The ``1/n_samples`` factor lives in
+:meth:`regulo.loss.Square.grad` and
+:meth:`regulo.loss.Softmax.grad`.  This matches standard deep
+learning frameworks.
 
-**Decision:** Covridge and Sparridge are applied **only to the first layer** (`W^{(1)}`). All other layers use the standard isotropic penalty (or no penalty, depending on the regularizer class).
+### 4. Penalty registry
 
-This is documented as an assumption in `trainer.py` because the paper does not explicitly state how to handle multi-layer networks.
+:class:`regulo.penalty.REGISTRY` maps method names to penalty
+classes.  :func:`regulo.tune.resolve` is the single entry point
+for constructing a penalty from a string name and a hyperparameter
+dictionary; no method-name dispatch lives outside the registry.
 
-### 3. Loss Gradient Scaling
+### 5. Determinism via seeds
 
-The `1/n_samples` factor is applied in `losses.py` (MSELoss.backward and CrossEntropyLoss.backward), not in `network.py`. This is consistent with standard deep learning frameworks and ensures the network backward pass computes the exact parameter gradients expected by the optimizer.
+Every stochastic call site accepts a ``seed`` integer:
 
-### 4. Adam State Management
+* :class:`regulo.net.MLP` initialisation
+* :meth:`regulo.fit.Runner.fit` mini-batch shuffling
+* :func:`regulo.data.synth` DGP sampling
+* :func:`regulo.tune.search` K-fold splits
 
-The Adam optimizer maintains moment estimates in nested dictionaries keyed by parameter group name (`weights`, `biases`) and index. This allows it to handle arbitrary network depths without knowing the architecture ahead of time.
+A given seed produces bit-identical weights across runs.
 
-### 5. Cross-Validation Standardization
+### 6. Persistence without pickle
 
-Feature standardization is performed **inside each CV fold** on the training portion only, then applied to the validation portion. This prevents data leakage.
+:class:`regulo.store.save` writes plain ``npz`` and ``json``
+files.  Loading cannot execute arbitrary code; the schema is
+versioned via :data:`regulo.__version__` and rejects mismatched
+major versions.
 
-### 6. Hyperparameter Grids
+### 7. Cross-validation standardisation
 
-The simulation grid `{0.001, 0.01, 0.1, 0.5, 0.9}` matches the paper exactly. For two-parameter methods (Covridge, Sparridge, Elastic Net), all combinations are evaluated.
-
----
+Each fold in :func:`regulo.tune.search` fits a fresh
+:class:`regulo.tune.Scaler` on the training partition only,
+preventing information leakage from the validation set.
 
 ## Extensibility
 
-The modular design allows easy extension:
-
-- **New regularizer:** Subclass `Regularizer`, implement `penalty` and `gradient`, add to `build_regularizer`.
-- **New loss:** Implement `forward` and `backward` methods.
-- **New optimizer:** Implement `step(params, grads)`.
-- **New data loader:** Add a function returning `(x_train, x_test, y_train, y_test, scaler)`.
+* **New penalty:** subclass :class:`Penalty`, implement
+  :meth:`value` and :meth:`grad`, optionally override
+  :meth:`applies`, add to :data:`REGISTRY`.
+* **New loss:** subclass :class:`Loss`, implement :meth:`value`
+  and :meth:`grad`.
+* **New optimizer:** subclass or replace :class:`Adam` -- the
+  :class:`Runner` only relies on the ``step(params, grads)``
+  contract.
+* **New metric:** subclass :class:`Metric`, implement
+  :meth:`__call__`.

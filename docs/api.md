@@ -1,206 +1,276 @@
 # API Reference
 
-## Regularizers (`regulo.regularizers`)
+## Penalties (`regulo.penalty`)
 
-### `class Regularizer(ABC)`
+### `class Penalty(ABC)`
 
-Abstract base class for all regularizers.
+Abstract base class for weight-matrix penalties.
 
-#### `penalty(weights: np.ndarray) -> float`
-Compute scalar penalty for a weight matrix.
+#### `value(weight, layer) -> float`
 
-#### `gradient(weights: np.ndarray) -> np.ndarray`
-Compute gradient of penalty w.r.t. weights, same shape as input.
+Scalar penalty ``Omega(W)``.
+
+#### `grad(weight, layer) -> np.ndarray`
+
+Analytical gradient, same shape as ``weight``.
+
+#### `applies(layer) -> bool`
+
+Return whether this penalty applies to ``layer``.  Default
+``True`` for every layer.  :class:`Covridge` and
+:class:`Sparridge` override to ``layer == 0``.
 
 ---
 
-### `class NoRegularizer(Regularizer)`
+### `class Void(Penalty)`
 
-No-op baseline. Always returns `0.0` and zero gradient.
+No-op penalty.  Always returns ``0.0`` and zero gradient.
 
 ---
 
-### `class Ridge(Regularizer)`
+### `class Ridge(Penalty)`
 
 **Constructor:** `Ridge(lambda_: float)`
 
-Penalty: `λ ‖W‖_F^2`
-
-Gradient: `2 λ W`
+Penalty: ``lambda ||W||_F^2``.  Gradient: ``2 lambda W``.
 
 ---
 
-### `class Lasso(Regularizer)`
+### `class Lasso(Penalty)`
 
 **Constructor:** `Lasso(gamma: float)`
 
-Penalty: `γ ‖W‖_1`
-
-Gradient: `γ sign(W)` (subgradient, `sign(0)=0`)
+Penalty: ``gamma ||W||_1``.  Subgradient: ``gamma sign(W)``
+(``sign(0) = 0``).
 
 ---
 
-### `class ElasticNet(Regularizer)`
+### `class ElasticNet(Penalty)`
 
 **Constructor:** `ElasticNet(alpha: float, gamma: float)`
 
-Penalty: `α γ ‖W‖_1 + (1-α)/2 ‖W‖_F^2`
-
-Gradient: `α γ sign(W) + (1-α) W`
-
----
-
-### `class Covridge(Regularizer)`
-
-**Constructor:** `Covridge(lambda1: float, lambda2: float, c_delta_n: np.ndarray)`
-
-Penalty: `λ_1 ‖C_{δ,n}^{1/2} W‖_F^2 + λ_2 ‖W‖_F^2`
-
-Gradient: `2 λ_1 C_{δ,n} W + 2 λ_2 W`
-
-`c_delta_n` is the stabilized Gram matrix `(p, p)`.
+Penalty: ``alpha gamma ||W||_1 + (1 - alpha)/2 ||W||_F^2``.
+Gradient: ``alpha gamma sign(W) + (1 - alpha) W``.
 
 ---
 
-### `class Sparridge(Regularizer)`
+### `class Covridge(Penalty)`
 
-**Constructor:** `Sparridge(lambda1: float, gamma: float, c_delta_n: np.ndarray)`
+**Constructor:**
+`Covridge(lambda1: float, lambda2: float, c_delta_n: np.ndarray)`
 
-Penalty: `λ_1 ‖C_{δ,n}^{1/2} W‖_F^2 + γ ‖W‖_1`
+Geometry-aware shrinkage along the eigenvectors of ``C``.  Applies
+only to the first weight matrix.
 
-Gradient: `2 λ_1 C_{δ,n} W + γ sign(W)`
+Penalty:
+``lambda1 ||C^{1/2} W||_F^2 + lambda2 ||W||_F^2``.
 
----
-
-## Losses (`regulo.losses`)
-
-### `class MSELoss`
-
-#### `forward(y_pred: np.ndarray, y_true: np.ndarray) -> float`
-Mean squared error.
-
-#### `backward(y_pred: np.ndarray, y_true: np.ndarray) -> np.ndarray`
-Gradient `2 (y_pred - y_true) / n_samples`.
+Gradient: ``2 lambda1 C W + 2 lambda2 W``.
 
 ---
 
-### `class CrossEntropyLoss`
+### `class Sparridge(Penalty)`
 
-#### `forward(logits: np.ndarray, y_true: np.ndarray) -> float`
-Softmax cross-entropy with integer labels.
+**Constructor:**
+`Sparridge(lambda1: float, gamma: float, c_delta_n: np.ndarray)`
 
-#### `backward(logits: np.ndarray, y_true: np.ndarray) -> np.ndarray`
-Gradient `(softmax(logits) - onehot(y_true)) / n_samples`.
+Geometry-aware shrinkage plus L1 sparsity.  Applies only to the
+first weight matrix.
 
----
+Penalty:
+``lambda1 ||C^{1/2} W||_F^2 + gamma ||W||_1``.
 
-## Network (`regulo.network`)
-
-### `class FullyConnectedNetwork`
-
-**Constructor:** `FullyConnectedNetwork(layer_sizes: List[int])`
-
-Creates a feedforward network with Xavier uniform initialization. ReLU is used for all hidden layers; the output layer is linear.
-
-#### `forward(x: np.ndarray) -> np.ndarray`
-Forward pass. Caches pre-activations (`_zs`) and activations (`_as`) for backprop.
-
-#### `backward(dloss_dy: np.ndarray) -> Dict[str, List[np.ndarray]]`
-Backward pass given the gradient of the loss w.r.t. the network output. Returns gradients for `weights` and `biases`.
-
-#### `get_params() -> Dict[str, List[np.ndarray]]`
-Return deep copy of all parameters.
-
-#### `set_params(params: Dict[str, List[np.ndarray]]) -> None`
-Set parameters from a dictionary.
+Subgradient: ``2 lambda1 C W + gamma sign(W)``.
 
 ---
 
-## Optimizer (`regulo.optimizer`)
+### `REGISTRY: dict[str, type[Penalty]]`
+
+Maps penalty names to penalty classes.
+
+---
+
+## Losses (`regulo.loss`)
+
+### `class Loss(ABC)`
+
+#### `value(prediction, target) -> float`
+
+Scalar loss.
+
+#### `grad(prediction, target) -> np.ndarray`
+
+Gradient w.r.t. ``prediction``.
+
+---
+
+### `class Square(Loss)`
+
+Mean squared error: ``(1/N) sum (y - y_hat)^2`` over ``N`` total
+scalar elements.  Gradient: ``(2/N) (y_hat - y)``.
+
+---
+
+### `class Softmax(Loss)`
+
+Numerically stable softmax cross-entropy.  Probabilities clipped
+at ``1e-15`` before the log so confident-correct predictions give
+exactly ``0.0`` loss.  ``target`` must be integer dtype in
+``[0, n_classes)``.
+
+---
+
+## Network (`regulo.net`)
+
+### `class MLP`
+
+**Constructor:** `MLP(layer_sizes: list[int], seed: int | None = None)`
+
+Feedforward MLP with ReLU hidden activations and a linear output.
+
+#### `__call__(x) -> np.ndarray`
+
+Forward pass; caches pre-activations and activations.
+
+#### `grad(dloss_dy) -> dict`
+
+Backward pass returning ``{"weights": [...], "biases": [...]}``.
+
+#### `state() -> dict`
+
+Deep copy of current parameters.
+
+#### `load(state) -> None`
+
+Replace parameters from a ``state`` dict.
+
+---
+
+### `xavier(fan_in, fan_out, rng) -> np.ndarray`
+
+Sample a weight matrix from the Xavier-uniform distribution
+using the supplied ``np.random.Generator``.
+
+---
+
+## Optimizer (`regulo.adam`)
 
 ### `class Adam`
 
-**Constructor:** `Adam(learning_rate=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8)`
+**Constructor:**
+`Adam(learning_rate=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8)`
 
-#### `step(params, grads) -> Dict[str, List[np.ndarray]]`
-Perform one Adam update. Returns new parameters.
+#### `step(params, grads) -> dict`
+
+Perform one update; return new parameter dict.
 
 #### `reset() -> None`
-Clear all moment estimates and step counter.
+
+Zero the step counter and moment buffers.
+
+---
+
+## Metrics (`regulo.score`)
+
+### `class Metric(ABC)`
+
+#### `__call__(y_true, y_pred) -> float`
+
+### `class Mse`, `class Mae`, `class Rmse`, `class R2`, `class Balanced`
+
+Concrete metrics.
 
 ---
 
 ## Data (`regulo.data`)
 
-### `make_dgp(n, p, k, rho, sigma_noise, tau=1.0, nonlinear=False, random_state=None)`
-Generate synthetic data with the paper's DGP specification.
+### `equicorr(k, rho) -> np.ndarray`
 
-Returns `(x, y)` with shapes `(n, p)` and `(n, 1)`.
+Build a ``k x k`` equi-correlation covariance matrix.  Validates
+``rho in (-1/(k-1), 1)``.
 
-### `make_dgp1(rho=0.25, sigma_noise=0.10, nonlinear=False, random_state=None)`
-Wrapper for DGP1: `n=200, p=20, k=10`.
+### `synth(n, p, k, rho, sigma_noise, tau=1.0, nonlinear=False, seed=None) -> (X, y)`
 
-### `make_dgp2(rho=0.25, sigma_noise=0.10, nonlinear=False, random_state=None)`
-Wrapper for DGP2: `n=1000, p=200, k=100`.
-
-### `make_dgp3(rho=0.25, sigma_noise=0.10, nonlinear=False, random_state=None)`
-Wrapper for DGP3: `n=500, p=2000, k=100`.
-
-### `load_energy_data(test_size=0.25, random_state=None)`
-Load UCI Energy Efficiency dataset (cooling load target).
-
-Returns `(x_train, x_test, y_train, y_test, scaler)`.
-
-### `load_leukemia_data(n_features=2000, test_size=0.2, random_state=None)`
-Load GSE9476 leukemia microarray data with ANOVA feature selection.
-
-Returns `(x_train, x_test, y_train, y_test, scaler)`.
+Generate synthetic data.  Validates ``n > 0``, ``p > 0``,
+``0 <= k <= p``, ``rho`` in PD range, ``sigma_noise >= 0``,
+``tau >= 0``.
 
 ---
 
-## Metrics (`regulo.metrics`)
+## Tuning (`regulo.tune`)
 
-### `mean_squared_error(y_true, y_pred) -> float`
-### `mean_absolute_error(y_true, y_pred) -> float`
-### `root_mean_squared_error(y_true, y_pred) -> float`
-### `r2_score(y_true, y_pred) -> float`
-### `balanced_accuracy_score(y_true, y_pred) -> float`
+### `kfold(n, n_splits, seed=None) -> Iterator[tuple[np.ndarray, np.ndarray]]`
+
+Yield ``(train_idx, val_idx)`` for ``n_splits`` shuffled folds.
+
+### `class Scaler`
+
+Per-column z-score scaler.  Methods: ``fit(x)``, ``transform(x)``,
+``fit_transform(x)``.
+
+### `resolve(name, hp, x_train, delta=1e-4) -> Penalty`
+
+Construct a penalty from a name + hyperparameter dict + training
+data.  Uses the :data:`REGISTRY`.
+
+### `search(x, y, layer_sizes, method, param_grid, loss_fn, ...) -> (best_params, best_score)`
+
+Run K-fold CV over a parameter grid.  Returns the highest-scoring
+configuration.
 
 ---
 
-## Trainer (`regulo.trainer`)
+## Persistence (`regulo.store`)
 
-### `class Trainer`
+### `save(runner, path)`
+
+Write weights/biases/adam buffers and a ``meta.json`` describing
+the architecture and hyperparameters to ``path/``.
+
+### `load(path) -> Runner`
+
+Reconstruct a runner from ``path/``.  Refuses mismatched major
+versions.
+
+### `meta(runner) -> dict`
+
+Return the metadata dictionary that would be written by
+:meth:`save`.
+
+### `load_meta(path) -> dict`
+
+Read the ``meta.json`` from ``path/`` without constructing a
+runner.
+
+---
+
+## Trainer (`regulo.fit`)
+
+### `class Runner`
 
 **Constructor:**
-```python
-Trainer(
-    network: FullyConnectedNetwork,
-    loss_fn: MSELoss | CrossEntropyLoss,
-    regularizer: Regularizer,
-    optimizer: Adam,
-    batch_size: int = 32,
-    epochs: int = 500,
-    early_stopping: bool = False,
-    patience: int = 10,
-    verbose: bool = False,
-)
-```
+`Runner(mlp, loss_fn, penalty, adam, batch_size=32, epochs=500, early_stopping=False, patience=10)`
 
-#### `fit(x_train, y_train, x_val=None, y_val=None) -> None`
-Train the network. If `x_val` and `y_val` are provided, tracks validation loss and supports early stopping.
+#### `fit(x_train, y_train, x_val=None, y_val=None, seed=None) -> None`
 
-#### `predict(x: np.ndarray) -> np.ndarray`
-Generate predictions on new data.
+Train the network.
 
----
+#### `predict(x) -> np.ndarray`
 
-## Cross-Validation (`regulo.cv`)
+Raw forward pass; for classification returns logits.
 
-### `build_regularizer(method, hp, x_train, delta=1e-4) -> Regularizer`
-Instantiate a regularizer from a method name and hyperparameter dict.
+#### `predict_proba(x) -> np.ndarray`
 
-Supported methods: `none`, `ridge`, `lasso`, `elastic_net`, `covridge`, `sparridge`.
+Classification only.  Softmax probabilities.
 
-### `grid_search_cv(x, y, layer_sizes, method, param_grid, loss_fn, n_splits=5, batch_size=32, epochs=500, learning_rate=1e-3, early_stopping=False, patience=10, task="regression", random_state=None) -> Tuple[Dict[str, float], float]`
-Run k-fold cross-validation over a hyperparameter grid. Returns `(best_params, best_score)`.
+#### `predict_class(x) -> np.ndarray`
+
+Classification only.  Argmax class indices.
+
+#### `reset(seed=None) -> None`
+
+Re-initialise the network weights and zero the optimiser state.
+
+#### `warm_start(path) -> None`
+
+Replace the weights from a directory produced by :func:`save`.

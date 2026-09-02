@@ -2,153 +2,113 @@
 
 ## Setup
 
-Install in a clean virtual environment:
-
 ```bash
 python -m venv venv
 source venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-## Running Tests
-
-All tests:
+## Running tests
 
 ```bash
 pytest tests/ -v
+pytest tests/ --cov=regulo --cov-fail-under=95 --doctest-modules
 ```
 
-Specific test files:
+Per-module:
 
 ```bash
-pytest tests/test_regularizers.py -v
-pytest tests/test_network.py -v
-pytest tests/test_integration.py -v
+pytest tests/test_penalty.py -v
+pytest tests/test_net.py -v
+pytest tests/test_fit.py -v
 ```
 
-## Training a Model Manually
+## Training a model manually
 
-### Regression Example
+### Regression
 
 ```python
 import numpy as np
-from regulo.data import make_dgp1
-from regulo.network import FullyConnectedNetwork
-from regulo.optimizer import Adam
-from regulo.regularizers import Ridge
-from regulo.trainer import Trainer
-import regulo.losses as losses
-
-# Data
-x, y = make_dgp1(rho=0.25, sigma_noise=0.1, random_state=42)
-n = x.shape[0]
-split = int(0.75 * n)
-x_train, x_test = x[:split], x[split:]
-y_train, y_test = y[:split], y[split:]
-
-# Standardize
-from sklearn.preprocessing import StandardScaler
-scaler = StandardScaler()
-x_train = scaler.fit_transform(x_train)
-x_test = scaler.transform(x_test)
-
-# Model
-net = FullyConnectedNetwork([20, 64, 32, 1])
-opt = Adam(learning_rate=1e-3)
-reg = Ridge(lambda_=0.01)
-trainer = Trainer(
-    net, losses.MSELoss(), reg, opt, batch_size=32, epochs=500
+from regulo import (
+    Adam, MLP, Mse, Ridge, Runner, Scalar, Square, synth,
 )
-trainer.fit(x_train, y_train)
 
-# Predict
-preds = trainer.predict(x_test)
+x, y = synth(n=200, p=20, k=10, rho=0.25, sigma_noise=0.10, seed=42)
+rng = np.random.default_rng(42)
+perm = rng.permutation(200)
+x_train, x_test = x[perm[:150]], x[perm[150:]]
+y_train, y_test = y[perm[:150]], y[perm[150:]]
+
+scaler = Scaler().fit(x_train)
+x_train_s = scaler.transform(x_train)
+x_test_s = scaler.transform(x_test)
+
+runner = Runner(
+    MLP([20, 64, 32, 1], seed=42),
+    Square(),
+    Ridge(lambda_=0.01),
+    Adam(learning_rate=1e-3),
+    batch_size=32,
+    epochs=500,
+)
+runner.fit(x_train_s, y_train, x_val=x_test_s, y_val=y_test, seed=42)
+print(Mse()(y_test, runner.predict(x_test_s)))
 ```
 
-### Classification Example
+### Classification
 
 ```python
-from regulo.losses import CrossEntropyLoss
-
-net = FullyConnectedNetwork([p, 8, 4, n_classes])
-opt = Adam(learning_rate=1e-3)
-reg = Ridge(lambda_=1e-4)
-trainer = Trainer(
-    net, CrossEntropyLoss(), reg, opt,
-    batch_size=16, epochs=500,
-    early_stopping=True, patience=10
+import numpy as np
+from regulo import (
+    Adam, Balanced, Lasso, MLP, Runner, Scaler, Softmax,
 )
-trainer.fit(x_train, y_train, x_val, y_val)
-logits = trainer.predict(x_test)
-class_preds = np.argmax(logits, axis=1)
+
+rng = np.random.default_rng(0)
+x = rng.standard_normal((200, 10))
+y = rng.integers(0, 3, size=(200,))
+
+scaler = Scaler().fit(x)
+x_s = scaler.transform(x)
+
+runner = Runner(
+    MLP([10, 64, 32, 3], seed=0),
+    Softmax(),
+    Lasso(gamma=0.01),
+    Adam(learning_rate=1e-3),
+    batch_size=32,
+    epochs=200,
+)
+runner.fit(x_s, y, seed=0)
+preds = runner.predict_class(x_s)
+print("balanced accuracy:", Balanced()(y, preds))
 ```
 
-## Hyperparameter Search
+## Hyperparameter search
 
 ```python
-from regulo.cv import grid_search_cv
-import regulo.losses as losses
+from regulo import search
 
-param_grid = [
-    {"lambda1": a, "lambda2": b}
-    for a in [0.001, 0.01, 0.1, 0.5, 0.9]
-    for b in [0.001, 0.01, 0.1, 0.5, 0.9]
-]
-
-best_params, best_score = grid_search_cv(
-    x_train, y_train,
-    layer_sizes=[20, 64, 32, 1],
-    method="covridge",
-    param_grid=param_grid,
-    loss_fn=losses.MSELoss(),
+best, score = search(
+    x, y,
+    layer_sizes=[10, 64, 32, 3],
+    method="lasso",
+    param_grid=[{"gamma": v} for v in (1e-3, 1e-2, 1e-1)],
+    loss_fn=Softmax(),
     n_splits=5,
-    epochs=100,
+    epochs=200,
+    seed=0,
 )
 ```
 
-## Simulation Experiments
-
-```bash
-cd demo
-python run_simulation.py
-```
-
-For full 100 replications (slow):
-
-```bash
-python run_simulation.py --full
-```
-
-## Real-Data Experiments
-
-```bash
-cd demo
-python run_real_data.py
-```
-
-## Custom Regularizer
-
-Subclass `Regularizer` and implement `penalty` and `gradient`:
+## Save and load a trained model
 
 ```python
-from regulo.regularizers import Regularizer
-import numpy as np
+from regulo.store import save, load
 
-class HuberRegularizer(Regularizer):
-    def __init__(self, delta: float):
-        self.delta = delta
-
-    def penalty(self, weights: np.ndarray) -> float:
-        abs_w = np.abs(weights)
-        quadratic = 0.5 * abs_w ** 2
-        linear = self.delta * (abs_w - 0.5 * self.delta)
-        return float(np.sum(np.where(abs_w <= self.delta, quadratic, linear)))
-
-    def gradient(self, weights: np.ndarray) -> np.ndarray:
-        abs_w = np.abs(weights)
-        return np.where(
-            abs_w <= self.delta,
-            weights,
-            self.delta * np.sign(weights)
-        )
+save(runner, "model_dir")
+restored = load("model_dir")
 ```
+
+The on-disk format is plain ``npz`` + ``json`` (no ``pickle``);
+loading cannot execute arbitrary code.  Major-version mismatches
+are rejected.
