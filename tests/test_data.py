@@ -79,6 +79,16 @@ def test_synth_rejects_negative_sigma():
         synth(50, 5, 2, 0.0, -0.1)
 
 
+def test_synth_rejects_negative_p():
+    with pytest.raises(ValueError):
+        synth(50, -1, 2, 0.0, 0.1)
+
+
+def test_synth_rejects_negative_tau():
+    with pytest.raises(ValueError):
+        synth(50, 5, 2, 0.0, 0.1, tau=-1.0)
+
+
 def test_synth_rejects_non_pd_rho():
     with pytest.raises(ValueError):
         synth(50, 10, 5, 1.0, 0.1)

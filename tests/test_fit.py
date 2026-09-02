@@ -241,3 +241,21 @@ def test_early_stopping_requires_validation_data():
     )
     with pytest.raises(ValueError):
         runner.fit(np.zeros((10, 3)), np.zeros((10, 1)))
+
+
+def test_runner_validates_positive_hyperparameters():
+    with pytest.raises(ValueError):
+        Runner(MLP([3, 1]), Square(), Void(), Adam(), batch_size=0)
+    with pytest.raises(ValueError):
+        Runner(MLP([3, 1]), Square(), Void(), Adam(), epochs=0)
+    with pytest.raises(ValueError):
+        Runner(MLP([3, 1]), Square(), Void(), Adam(), patience=0)
+
+
+def test_runner_repr_contains_components():
+    runner = Runner(MLP([3, 1]), Square(), Void(), Adam())
+    text = repr(runner)
+    assert "Runner(" in text
+    assert "MLP(" in text
+    assert "Square(" in text
+    assert "Adam(" in text

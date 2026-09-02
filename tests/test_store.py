@@ -132,3 +132,19 @@ def test_warm_start_rejects_architecture_mismatch(tmp_path: Path):
     new_runner = Runner(MLP([3, 8, 1]), Square(), Void(), Adam())
     with pytest.raises(ValueError, match="Architecture mismatch"):
         new_runner.warm_start(str(target))
+
+
+def test_load_uses_fresh_adam_when_state_missing(tmp_path: Path):
+    """Load an on-disk model whose adam.npz is missing; the loader
+    should fall back to zero-filled moment buffers."""
+    runner = Runner(MLP([3, 4, 1]), Square(), Void(), Adam())
+    target = tmp_path / "no_adam"
+    save(runner, str(target))
+    (target / "adam.npz").unlink()
+    loaded = load(str(target))
+    assert loaded.adam.clock == 0
+    # All moment buffers should be None (lazy initialization kicks
+    # in on the next step), not loaded from disk.
+    for group in loaded.adam.mean:
+        for buf in loaded.adam.mean[group]:
+            assert buf is None

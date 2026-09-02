@@ -63,6 +63,13 @@ def test_scaler_transform_before_fit_raises():
         s.transform(np.zeros((3, 2)))
 
 
+def test_scaler_repr_unfit_and_fit():
+    s = Scaler()
+    assert "unfit" in repr(s)
+    s.fit(np.random.randn(10, 2))
+    assert "Scaler(mean=" in repr(s)
+
+
 def test_resolve_constructs_ridge():
     x = np.random.randn(50, 4)
     p = resolve("ridge", {"lambda_": 0.01}, x)
@@ -141,3 +148,32 @@ def test_search_reproducible_with_seed():
         x, y, [3, 4, 1], "ridge", grid, Square(), n_splits=3, epochs=5, seed=7
     )
     assert score_a == score_b
+
+
+def test_search_classification_uses_balanced_accuracy():
+    from regulo.loss import Softmax
+
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((40, 3))
+    y = rng.integers(0, 2, size=(40,))
+    grid = [{"lambda_": 1e-2}]
+    best, score = search(
+        x, y, [3, 4, 2], "ridge", grid, Softmax(), n_splits=3, epochs=5, seed=0
+    )
+    assert "lambda_" in best
+    assert 0.0 <= score <= 1.0
+
+
+def test_search_rejects_n_splits_lt_2():
+    from regulo.loss import Square
+
+    with pytest.raises(ValueError):
+        search(
+            np.zeros((10, 2)),
+            np.zeros((10, 1)),
+            layer_sizes=[2, 1],
+            method="ridge",
+            param_grid=[{"lambda_": 0.1}],
+            loss_fn=Square(),
+            n_splits=1,
+        )

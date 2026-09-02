@@ -100,3 +100,14 @@ def test_softmax_single_class():
     loss_fn = Softmax()
     assert np.isclose(loss_fn.value(logits, target), 0.0)
     np.testing.assert_allclose(loss_fn.grad(logits, target), 0.0)
+
+
+def test_loss_repr():
+    assert "Square" in repr(Square())
+    assert "Softmax" in repr(Softmax())
+
+
+def test_softmax_known_value_via_repr():
+    # Coverage for the Softmax.name class attribute.
+    assert Softmax().name == "softmax"
+    assert Square().name == "square"

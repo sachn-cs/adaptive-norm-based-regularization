@@ -204,3 +204,7 @@ def test_xavier_reproducible():
     a = xavier(3, 4, np.random.default_rng(0))
     b = xavier(3, 4, np.random.default_rng(0))
     np.testing.assert_array_equal(a, b)
+
+
+def test_mlp_repr():
+    assert repr(MLP([3, 4, 1])) == "MLP(layer_sizes=[3, 4, 1])"

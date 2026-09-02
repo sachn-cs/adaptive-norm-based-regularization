@@ -79,3 +79,8 @@ def test_all_metrics_satisfy_metric_protocol():
         assert isinstance(m, Metric)
         assert callable(m)
         assert isinstance(m.name, str) and m.name
+
+
+def test_metric_repr():
+    assert repr(Mse()) == "Mse()"
+    assert repr(Mae()) == "Mae()"

@@ -274,3 +274,22 @@ def test_each_penalty_has_name():
 def test_penalty_is_abstract():
     with pytest.raises(TypeError):
         Penalty()
+
+
+def test_penalty_repr_default_class():
+    # The default Penalty.__repr__ falls back to a generic form
+    # when no hyperparameter keys are present.
+    assert "Void" in repr(Void())
+
+
+def test_sparridge_value_with_off_diagonal_gram():
+    rng = np.random.default_rng(0)
+    w = rng.standard_normal((4, 3))
+    c = np.array(
+        [[2.0, 0.5, 0.5, 0.5], [0.5, 2.0, 0.5, 0.5],
+         [0.5, 0.5, 2.0, 0.5], [0.5, 0.5, 0.5, 2.0]]
+    )
+    reg = Sparridge(lambda1=0.3, gamma=0.1, c_delta_n=c)
+    cw = reg.csqrt @ w
+    expected_v = 0.3 * float(np.sum(cw**2)) + 0.1 * float(np.sum(np.abs(w)))
+    assert np.isclose(reg.value(w, 0), expected_v)
