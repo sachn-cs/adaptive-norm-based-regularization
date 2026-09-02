@@ -1,8 +1,9 @@
 """Comprehensive tests for the Adam optimizer."""
 
 import numpy as np
+import pytest
 
-from regulo.optimizer import Adam
+from regulo.adam import Adam
 
 
 def test_adam_updates_weights():
@@ -17,8 +18,6 @@ def test_adam_moment_estimates():
     opt = Adam(learning_rate=0.1, beta1=0.9, beta2=0.999)
     params = {"weights": [np.zeros((1, 1))]}
     grads = {"weights": [np.ones((1, 1))]}
-    # After many steps with constant grad=1, m_hat ≈ 1, v_hat ≈ 1,
-    # so each step ≈ -lr. After 1000 steps ≈ -100.
     for _ in range(1000):
         params = opt.step(params, grads)
     np.testing.assert_allclose(
@@ -31,11 +30,11 @@ def test_adam_reset():
     params = {"weights": [np.ones((2, 2))]}
     grads = {"weights": [np.ones((2, 2))]}
     opt.step(params, grads)
-    assert opt.t == 1
+    assert opt.clock == 1
     opt.reset()
-    assert opt.t == 0
-    assert opt._m == {}
-    assert opt._v == {}
+    assert opt.clock == 0
+    assert opt.mean == {}
+    assert opt.variance == {}
 
 
 def test_adam_zero_gradient():
@@ -43,7 +42,6 @@ def test_adam_zero_gradient():
     params = {"weights": [np.ones((2, 2))]}
     grads = {"weights": [np.zeros((2, 2))]}
     new_params = opt.step(params, grads)
-    # With zero gradient, parameters should not change.
     np.testing.assert_allclose(new_params["weights"][0], params["weights"][0])
 
 
@@ -72,4 +70,36 @@ def test_adam_multiple_parameter_groups():
         assert not np.array_equal(
             new_params["weights"][i], params["weights"][i]
         )
-        assert not np.array_equal(new_params["biases"][i], params["biases"][i])
+        assert not np.array_equal(
+            new_params["biases"][i], params["biases"][i]
+        )
+
+
+def test_adam_rejects_invalid_beta():
+    with pytest.raises(ValueError):
+        Adam(beta1=1.0)
+    with pytest.raises(ValueError):
+        Adam(beta2=1.5)
+    with pytest.raises(ValueError):
+        Adam(beta1=-0.1)
+
+
+def test_adam_rejects_non_positive_lr():
+    with pytest.raises(ValueError):
+        Adam(learning_rate=0.0)
+    with pytest.raises(ValueError):
+        Adam(learning_rate=-1.0)
+
+
+def test_adam_rejects_non_positive_epsilon():
+    with pytest.raises(ValueError):
+        Adam(epsilon=0.0)
+    with pytest.raises(ValueError):
+        Adam(epsilon=-1e-8)
+
+
+def test_adam_repr_contains_key_params():
+    opt = Adam(learning_rate=0.01, beta1=0.5)
+    text = repr(opt)
+    assert "learning_rate=0.01" in text
+    assert "beta1=0.5" in text

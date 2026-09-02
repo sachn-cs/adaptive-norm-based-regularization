@@ -1,81 +1,114 @@
 """Comprehensive tests for synthetic DGP generation."""
 
 import numpy as np
+import pytest
 
-from regulo.data import make_dgp, make_dgp1, make_dgp2, make_dgp3
+from regulo.data import equicorr, synth
 
 
-def test_dgp_shape():
-    x, y = make_dgp1()
+def test_synth_shape():
+    x, y = synth(200, 20, 10, 0.25, 0.10, seed=0)
     assert x.shape == (200, 20)
     assert y.shape == (200, 1)
 
 
-def test_dgp2_shape():
-    x, y = make_dgp2()
-    assert x.shape == (1000, 200)
-    assert y.shape == (1000, 1)
-
-
-def test_dgp3_shape():
-    x, y = make_dgp3()
-    assert x.shape == (500, 2000)
-    assert y.shape == (500, 1)
-
-
-def test_dgp_correlation():
+def test_synth_correlation():
     rho = 0.75
-    x, _ = make_dgp(500, 20, 10, rho, 0.1, random_state=42)
-    # Check approximate correlation in first 10 features.
+    x, _ = synth(500, 20, 10, rho, 0.1, seed=42)
     emp_corr = np.corrcoef(x[:, :10], rowvar=False)
     off_diag = emp_corr[np.triu_indices_from(emp_corr, k=1)]
     assert np.mean(off_diag) > 0.5
 
 
-def test_dgp_nonlinear():
-    x, y_lin = make_dgp(100, 10, 5, 0.25, 0.1, nonlinear=False, random_state=1)
-    _, y_non = make_dgp(100, 10, 5, 0.25, 0.1, nonlinear=True, random_state=1)
+def test_synth_nonlinear():
+    x, y_lin = synth(100, 10, 5, 0.25, 0.1, nonlinear=False, seed=1)
+    _, y_non = synth(100, 10, 5, 0.25, 0.1, nonlinear=True, seed=1)
     assert not np.allclose(y_lin, y_non)
 
 
-def test_dgp_zero_correlation():
-    x, _ = make_dgp(500, 20, 10, 0.0, 0.1, random_state=42)
+def test_synth_zero_correlation():
+    x, _ = synth(500, 20, 10, 0.0, 0.1, seed=42)
     emp_corr = np.corrcoef(x[:, :10], rowvar=False)
     off_diag = emp_corr[np.triu_indices_from(emp_corr, k=1)]
-    # Off-diagonal should be close to zero.
     assert np.mean(np.abs(off_diag)) < 0.1
 
 
-def test_dgp_high_correlation():
-    x, _ = make_dgp(500, 20, 10, 0.95, 0.1, random_state=42)
+def test_synth_high_correlation():
+    x, _ = synth(500, 20, 10, 0.95, 0.1, seed=42)
     emp_corr = np.corrcoef(x[:, :10], rowvar=False)
     off_diag = emp_corr[np.triu_indices_from(emp_corr, k=1)]
     assert np.mean(off_diag) > 0.85
 
 
-def test_dgp_zero_noise():
-    x, y = make_dgp(100, 10, 5, 0.25, 0.0, random_state=42)
-    # With zero noise and linear signal, y should be deterministic.
-    _, y2 = make_dgp(100, 10, 5, 0.25, 0.0, random_state=42)
+def test_synth_zero_noise():
+    x, y = synth(100, 10, 5, 0.25, 0.0, seed=42)
+    _, y2 = synth(100, 10, 5, 0.25, 0.0, seed=42)
     np.testing.assert_allclose(y, y2)
 
 
-def test_dgp_all_informative():
-    # k = p, all features informative.
-    x, y = make_dgp(50, 10, 10, 0.25, 0.1, random_state=42)
+def test_synth_all_informative():
+    x, y = synth(50, 10, 10, 0.25, 0.1, seed=42)
     assert x.shape == (50, 10)
 
 
-def test_dgp_no_informative():
-    # k = 0, all features are noise.
-    x, y = make_dgp(50, 10, 0, 0.25, 0.1, random_state=42)
+def test_synth_no_informative():
+    x, y = synth(50, 10, 0, 0.25, 0.1, seed=42)
     assert x.shape == (50, 10)
-    # y should be pure noise.
     assert np.std(y) > 0.0
 
 
-def test_dgp_different_seeds():
-    x1, y1 = make_dgp(100, 10, 5, 0.25, 0.1, random_state=1)
-    x2, y2 = make_dgp(100, 10, 5, 0.25, 0.1, random_state=2)
+def test_synth_different_seeds():
+    x1, y1 = synth(100, 10, 5, 0.25, 0.1, seed=1)
+    x2, y2 = synth(100, 10, 5, 0.25, 0.1, seed=2)
     assert not np.allclose(x1, x2)
     assert not np.allclose(y1, y2)
+
+
+def test_synth_rejects_k_greater_than_p():
+    with pytest.raises(ValueError):
+        synth(50, 5, 10, 0.25, 0.1)
+
+
+def test_synth_rejects_negative_n():
+    with pytest.raises(ValueError):
+        synth(-1, 5, 2, 0.0, 0.1)
+
+
+def test_synth_rejects_negative_sigma():
+    with pytest.raises(ValueError):
+        synth(50, 5, 2, 0.0, -0.1)
+
+
+def test_synth_rejects_non_pd_rho():
+    with pytest.raises(ValueError):
+        synth(50, 10, 5, 1.0, 0.1)
+
+
+def test_equicorr_shape():
+    sigma = equicorr(5, 0.3)
+    assert sigma.shape == (5, 5)
+    np.testing.assert_allclose(np.diag(sigma), 1.0)
+    # Off-diagonal entries equal rho; diagonal already checked above.
+    sigma_off = sigma.copy()
+    np.fill_diagonal(sigma_off, 0.3)
+    np.testing.assert_allclose(sigma_off, 0.3)
+
+
+def test_equicorr_k_one_accepts_any_rho():
+    # For k=1 the matrix is just [[1]] regardless of rho.
+    sigma = equicorr(1, 5.0)
+    np.testing.assert_allclose(sigma, [[1.0]])
+
+
+def test_equicorr_rejects_non_pd_rho():
+    with pytest.raises(ValueError):
+        equicorr(3, 1.0)
+    with pytest.raises(ValueError):
+        equicorr(3, -1.0)
+
+
+def test_equicorr_rejects_non_positive_k():
+    with pytest.raises(ValueError):
+        equicorr(0, 0.0)
+    with pytest.raises(ValueError):
+        equicorr(-1, 0.0)
