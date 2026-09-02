@@ -32,9 +32,9 @@ def meta(runner: Runner) -> Dict:
         "version": __version__,
         "layer_sizes": list(runner.mlp.layer_sizes),
         "loss": runner.loss_fn.name,
-        "loss_kwargs": _loss_kwargs(runner.loss_fn),
+        "loss_kwargs": loss_kwargs(runner.loss_fn),
         "penalty": runner.penalty.name,
-        "penalty_hp": _penalty_hp(runner.penalty),
+        "penalty_hp": penalty_hp(runner.penalty),
         "adam": {
             "learning_rate": runner.adam.learning_rate,
             "beta1": runner.adam.beta1,
@@ -57,7 +57,7 @@ def save(runner: Runner, path: str) -> None:
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
     with open(p / META_FILE, "w") as f:
-        json.dump(meta(runner), f, indent=2, default=_json_default)
+        json.dump(meta(runner), f, indent=2, default=json_default)
     np.savez(
         p / "weights.npz",
         **{f"w{i}": w for i, w in enumerate(runner.mlp.weights)},
@@ -105,9 +105,9 @@ def load(path: str) -> Runner:
 
     data = load_meta(path)
     mlp = MLP(data["layer_sizes"])
-    loss_cls = _resolve_loss(data["loss"])
+    loss_cls = resolve_loss(data["loss"])
     loss = loss_cls(**data["loss_kwargs"])
-    penalty = _resolve_penalty(data)
+    penalty = resolve_penalty(data)
     adam = Adam(**data["adam"])
 
     p = Path(path)
@@ -142,11 +142,11 @@ def load(path: str) -> Runner:
     return runner
 
 
-def _loss_kwargs(loss: Loss) -> Dict:
+def loss_kwargs(loss: Loss) -> Dict:
     return {}
 
 
-def _penalty_hp(penalty: Penalty) -> Dict:
+def penalty_hp(penalty: Penalty) -> Dict:
     out = {}
     for name in penalty.hp:
         if name == "c_delta_n":
@@ -156,7 +156,7 @@ def _penalty_hp(penalty: Penalty) -> Dict:
     return out
 
 
-def _resolve_loss(name: str):
+def resolve_loss(name: str):
     from regulo.loss import Softmax, Square
 
     table = {"square": Square, "softmax": Softmax}
@@ -165,7 +165,7 @@ def _resolve_loss(name: str):
     return table[name]
 
 
-def _resolve_penalty(data: Dict) -> Penalty:
+def resolve_penalty(data: Dict) -> Penalty:
     name = data["penalty"]
     hp = dict(data["penalty_hp"])
     if name in ("covridge", "sparridge"):
@@ -178,7 +178,7 @@ def _resolve_penalty(data: Dict) -> Penalty:
     return cls(**hp)
 
 
-def _json_default(obj):
+def json_default(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, np.integer):
