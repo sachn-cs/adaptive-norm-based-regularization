@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "regulo"
-version = "0.2.0a1"
+version = "0.2.0"
 description = "Pure Python reproduction of Adaptive Norm-Based Regularization for Neural Networks"
 readme = "README.md"
 license = {text = "MIT"}
@@ -24,7 +24,7 @@ keywords = [
     "research-reproduction",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",

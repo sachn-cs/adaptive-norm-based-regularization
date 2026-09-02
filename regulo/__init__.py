@@ -33,7 +33,7 @@ from regulo.penalty import (
 from regulo.score import Balanced, Mae, Metric, Mse, R2, Rmse
 from regulo.tune import Scaler, kfold, resolve, search
 
-__version__ = "0.2.0a1"
+__version__ = "0.2.0"
 
 # store depends on __version__, so it must be imported last.
 from regulo.fit import Runner  # noqa: E402
