@@ -6,33 +6,33 @@ import pytest
 from regulo.tune import Scaler, kfold, resolve, search
 
 
-def test_kfold_yields_correct_number_of_folds():
+def test_kfold_count():
     folds = list(kfold(100, 5, seed=0))
     assert len(folds) == 5
-    for train_idx, val_idx in folds:
-        assert len(train_idx) + len(val_idx) == 100
+    for train, val in folds:
+        assert len(train) + len(val) == 100
 
 
-def test_kfold_indices_partition_samples():
+def test_kfold_partition():
     folds = list(kfold(50, 5, seed=0))
     val_union = np.concatenate([v for _, v in folds])
     assert sorted(val_union.tolist()) == list(range(50))
 
 
-def test_kfold_reproducible_with_seed():
+def test_kfold_reproducible():
     a = [v.tolist() for _, v in kfold(50, 5, seed=42)]
     b = [v.tolist() for _, v in kfold(50, 5, seed=42)]
     assert a == b
 
 
-def test_kfold_rejects_invalid_n_splits():
+def test_kfold_rejects():
     with pytest.raises(ValueError):
         list(kfold(100, 1))
     with pytest.raises(ValueError):
         list(kfold(2, 5))
 
 
-def test_scaler_fit_transform_zero_mean_unit_var():
+def test_scaler_zscore():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((100, 4)) * 3.0 + 5.0
     s = Scaler().fit(x)
@@ -41,43 +41,42 @@ def test_scaler_fit_transform_zero_mean_unit_var():
     np.testing.assert_allclose(out.std(axis=0), 1.0, atol=1e-10)
 
 
-def test_scaler_transform_matches_fit_transform():
+def test_scaler_fittransform():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((30, 3))
     s = Scaler().fit(x[:20])
     np.testing.assert_allclose(
-        s.transform(x[:20]), s.fit_transform(x[:20])
+        s.transform(x[:20]), s.fittransform(x[:20])
     )
 
 
-def test_scaler_constant_column_does_not_div_zero():
+def test_scaler_constant_column():
     x = np.array([[1.0, 2.0], [1.0, 3.0], [1.0, 4.0]])
-    out = Scaler().fit_transform(x)
-    # Constant column stays zero-mean (after centering), not NaN.
+    out = Scaler().fittransform(x)
     assert np.all(np.isfinite(out))
 
 
-def test_scaler_transform_before_fit_raises():
+def test_scaler_transform_unfit():
     s = Scaler()
     with pytest.raises(RuntimeError):
         s.transform(np.zeros((3, 2)))
 
 
-def test_scaler_repr_unfit_and_fit():
+def test_scaler_repr():
     s = Scaler()
     assert "unfit" in repr(s)
     s.fit(np.random.randn(10, 2))
     assert "Scaler(mean=" in repr(s)
 
 
-def test_resolve_constructs_ridge():
+def test_resolve_ridge():
     x = np.random.randn(50, 4)
-    p = resolve("ridge", {"lambda_": 0.01}, x)
+    p = resolve("ridge", {"lam": 0.01}, x)
     assert p.name == "ridge"
-    assert p.lambda_ == 0.01
+    assert p.lam == 0.01
 
 
-def test_resolve_constructs_covridge_with_gram():
+def test_resolve_covridge_gram():
     x = np.random.randn(50, 4)
     p = resolve("covridge", {"lambda1": 0.1, "lambda2": 0.01}, x)
     assert p.lambda1 == 0.1
@@ -85,18 +84,18 @@ def test_resolve_constructs_covridge_with_gram():
     assert p.csqrt.shape == (4, 4)
 
 
-def test_resolve_rejects_unknown_method():
+def test_resolve_unknown():
     with pytest.raises(ValueError):
         resolve("nonsense", {}, np.zeros((10, 2)))
 
 
-def test_resolve_rejects_unexpected_hp_keys():
+def test_resolve_extra_keys():
     x = np.zeros((10, 3))
     with pytest.raises(ValueError):
-        resolve("ridge", {"lambda_": 0.1, "garbage": 1.0}, x)
+        resolve("ridge", {"lam": 0.1, "garbage": 1.0}, x)
 
 
-def test_search_returns_best_params_and_score():
+def test_search_best():
     from regulo.loss import Square
 
     rng = np.random.default_rng(0)
@@ -105,75 +104,75 @@ def test_search_returns_best_params_and_score():
         x @ np.array([1.0, -1.0, 0.5, 0.0]).reshape(-1, 1)
         + rng.standard_normal((60, 1)) * 0.1
     )
-    param_grid = [{"lambda_": 1e-3}, {"lambda_": 1e-2}]
+    grid = [{"lam": 1e-3}, {"lam": 1e-2}]
     best, score = search(
         x,
         y,
-        layer_sizes=[4, 4, 1],
+        shape=[4, 4, 1],
         method="ridge",
-        param_grid=param_grid,
+        grid=grid,
         loss_fn=Square(),
-        n_splits=3,
+        folds=3,
         epochs=10,
     )
-    assert "lambda_" in best
-    assert score <= 0  # negative MSE
+    assert "lam" in best
+    assert score <= 0
 
 
-def test_search_rejects_empty_param_grid():
+def test_search_empty_grid():
     from regulo.loss import Square
 
     with pytest.raises(ValueError):
         search(
             np.zeros((10, 2)),
             np.zeros((10, 1)),
-            layer_sizes=[2, 1],
+            shape=[2, 1],
             method="ridge",
-            param_grid=[],
+            grid=[],
             loss_fn=Square(),
         )
 
 
-def test_search_reproducible_with_seed():
+def test_search_reproducible():
     from regulo.loss import Square
 
     rng = np.random.default_rng(0)
     x = rng.standard_normal((40, 3))
     y = rng.standard_normal((40, 1))
-    grid = [{"lambda_": 1e-2}]
+    grid = [{"lam": 1e-2}]
     _, score_a = search(
-        x, y, [3, 4, 1], "ridge", grid, Square(), n_splits=3, epochs=5, seed=7
+        x, y, [3, 4, 1], "ridge", grid, Square(), folds=3, epochs=5, seed=7
     )
     _, score_b = search(
-        x, y, [3, 4, 1], "ridge", grid, Square(), n_splits=3, epochs=5, seed=7
+        x, y, [3, 4, 1], "ridge", grid, Square(), folds=3, epochs=5, seed=7
     )
     assert score_a == score_b
 
 
-def test_search_classification_uses_balanced_accuracy():
+def test_search_classification():
     from regulo.loss import Softmax
 
     rng = np.random.default_rng(0)
     x = rng.standard_normal((40, 3))
     y = rng.integers(0, 2, size=(40,))
-    grid = [{"lambda_": 1e-2}]
+    grid = [{"lam": 1e-2}]
     best, score = search(
-        x, y, [3, 4, 2], "ridge", grid, Softmax(), n_splits=3, epochs=5, seed=0
+        x, y, [3, 4, 2], "ridge", grid, Softmax(), folds=3, epochs=5, seed=0
     )
-    assert "lambda_" in best
+    assert "lam" in best
     assert 0.0 <= score <= 1.0
 
 
-def test_search_rejects_n_splits_lt_2():
+def test_search_rejects_folds():
     from regulo.loss import Square
 
     with pytest.raises(ValueError):
         search(
             np.zeros((10, 2)),
             np.zeros((10, 1)),
-            layer_sizes=[2, 1],
+            shape=[2, 1],
             method="ridge",
-            param_grid=[{"lambda_": 0.1}],
+            grid=[{"lam": 0.1}],
             loss_fn=Square(),
-            n_splits=1,
+            folds=1,
         )

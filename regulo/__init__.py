@@ -37,7 +37,7 @@ __version__ = "0.2.0"
 
 # store depends on __version__, so it must be imported last.
 from regulo.fit import Runner  # noqa: E402
-from regulo.store import load, meta, save  # noqa: E402
+from regulo.store import load, meta, save, snapshot  # noqa: E402
 
 __all__ = [
     "Adam",
@@ -67,6 +67,7 @@ __all__ = [
     "meta",
     "resolve",
     "save",
+    "snapshot",
     "search",
     "synth",
     "xavier",

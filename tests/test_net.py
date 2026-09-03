@@ -45,8 +45,7 @@ def test_backward_shape():
     net = MLP([4, 3, 2])
     x = np.random.randn(16, 4)
     out = net(x)
-    dloss = np.ones_like(out)
-    grads = net.grad(dloss)
+    grads = net.grad(np.ones_like(out))
     assert len(grads["weights"]) == 2
     assert len(grads["biases"]) == 2
     assert grads["weights"][0].shape == (4, 3)
@@ -90,11 +89,11 @@ def test_state_load_round_trip():
     np.testing.assert_allclose(new_state["weights"][0], np.ones_like(state["weights"][0]))
 
 
-def gradient_fd(net: MLP, x: np.ndarray, y: np.ndarray, eps: float = 1e-5) -> dict:
+def fdgradient(net: MLP, x: np.ndarray, y: np.ndarray, eps: float = 1e-5) -> dict:
     """Compute weight/bias gradients via central finite differences."""
     out = net(x)
     loss = float(np.mean((out - y) ** 2))
-    fd_w = []
+    fdw = []
     for i, w in enumerate(net.weights):
         grad = np.zeros_like(w)
         for r in range(w.shape[0]):
@@ -106,24 +105,24 @@ def gradient_fd(net: MLP, x: np.ndarray, y: np.ndarray, eps: float = 1e-5) -> di
                 loss_plus = float(np.mean((net(x) - y) ** 2))
                 net.weights[i] = orig
                 grad[r, c] = (loss_plus - loss) / eps
-        fd_w.append(grad)
-    fd_b = []
+        fdw.append(grad)
+    fdb = []
     for i, b in enumerate(net.biases):
         grad = np.zeros_like(b)
         for c in range(b.shape[1]):
             b_plus = b.copy()
             b_plus[0, c] += eps
             orig = net.biases[i].copy()
-            net.weights[i] = net.weights[i]  # noop but keeps mypy happy
+            net.weights[i] = net.weights[i]
             net.biases[i] = b_plus
             loss_plus = float(np.mean((net(x) - y) ** 2))
             net.biases[i] = orig
             grad[0, c] = (loss_plus - loss) / eps
-        fd_b.append(grad)
-    return {"weights": fd_w, "biases": fd_b}
+        fdb.append(grad)
+    return {"weights": fdw, "biases": fdb}
 
 
-def test_gradient_matches_fd_single_output():
+def test_gradient_fd_single():
     rng = np.random.default_rng(0)
     net = MLP([3, 4, 1])
     x = rng.standard_normal((4, 3))
@@ -131,11 +130,8 @@ def test_gradient_matches_fd_single_output():
     out = net(x)
     dloss = 2.0 * (out - y) / out.size
     grads = net.grad(dloss)
-    fd = gradient_fd(net, x, y)
+    fd = fdgradient(net, x, y)
     for i in range(len(grads["weights"])):
-        np.testing.assert_allclose(
-            grads["weights"][i], fd["weights"][i], rtol=1e-3, atol=1e-4
-        )
         np.testing.assert_allclose(
             grads["weights"][i], fd["weights"][i], rtol=1e-3, atol=1e-4
         )
@@ -144,7 +140,7 @@ def test_gradient_matches_fd_single_output():
         )
 
 
-def test_gradient_matches_fd_multi_output():
+def test_gradient_fd_multi():
     rng = np.random.default_rng(2)
     net = MLP([3, 4, 2])
     x = rng.standard_normal((5, 3))
@@ -152,7 +148,7 @@ def test_gradient_matches_fd_multi_output():
     out = net(x)
     dloss = 2.0 * (out - y) / out.size
     grads = net.grad(dloss)
-    fd = gradient_fd(net, x, y)
+    fd = fdgradient(net, x, y)
     for i in range(len(grads["weights"])):
         np.testing.assert_allclose(
             grads["weights"][i], fd["weights"][i], rtol=1e-3, atol=1e-4
@@ -162,25 +158,25 @@ def test_gradient_matches_fd_multi_output():
         )
 
 
-def test_mlp_reproducible_with_seed():
+def test_reproducible_seed():
     a = MLP([3, 4, 1], seed=42)
     b = MLP([3, 4, 1], seed=42)
     for wa, wb in zip(a.weights, b.weights):
         np.testing.assert_array_equal(wa, wb)
 
 
-def test_mlp_different_seeds_differ():
+def test_different_seeds_differ():
     a = MLP([3, 4, 1], seed=0)
     b = MLP([3, 4, 1], seed=1)
     assert not np.array_equal(a.weights[0], b.weights[0])
 
 
-def test_mlp_rejects_too_few_layers():
+def test_rejects_too_few_layers():
     with pytest.raises(ValueError):
         MLP([3])
 
 
-def test_mlp_rejects_non_positive_width():
+def test_rejects_non_positive_width():
     with pytest.raises(ValueError):
         MLP([3, 0, 1])
     with pytest.raises(ValueError):
@@ -193,7 +189,7 @@ def test_grad_before_call_raises():
         net.grad(np.ones((1, 1)))
 
 
-def test_xavier_shape_and_bound():
+def test_xavier_shape_bound():
     rng = np.random.default_rng(0)
     w = xavier(3, 4, rng)
     assert w.shape == (3, 4)
@@ -206,5 +202,5 @@ def test_xavier_reproducible():
     np.testing.assert_array_equal(a, b)
 
 
-def test_mlp_repr():
-    assert repr(MLP([3, 4, 1])) == "MLP(layer_sizes=[3, 4, 1])"
+def test_repr():
+    assert repr(MLP([3, 4, 1])) == "MLP(shape=[3, 4, 1])"

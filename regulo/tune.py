@@ -19,28 +19,28 @@ __all__ = ["kfold", "Scaler", "resolve", "search"]
 
 
 def kfold(
-    n: int, n_splits: int, seed: Optional[int] = None
+    n: int, folds: int, seed: Optional[int] = None
 ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
-    """Yield ``(train_idx, val_idx)`` tuples for *n_splits* folds.
+    """Yield ``(train, val)`` index tuples for *folds* folds.
 
     Each fold uses a contiguous slice of a shuffled permutation;
     shuffling is seeded by *seed* for reproducibility.  Standard
     K-fold behaviour with shuffle.
     """
-    if n_splits < 2:
-        raise ValueError("n_splits must be at least 2.")
-    if n_splits > n:
-        raise ValueError("n_splits cannot exceed n.")
+    if folds < 2:
+        raise ValueError("folds must be at least 2.")
+    if folds > n:
+        raise ValueError("folds cannot exceed n.")
     rng = np.random.default_rng(seed)
     perm = rng.permutation(n)
-    fold_sizes = [n // n_splits] * n_splits
-    for i in range(n % n_splits):
-        fold_sizes[i] += 1
+    sizes = [n // folds] * folds
+    for i in range(n % folds):
+        sizes[i] += 1
     start = 0
-    for size in fold_sizes:
-        val_idx = perm[start : start + size]
-        train_idx = np.concatenate([perm[:start], perm[start + size :]])
-        yield train_idx, val_idx
+    for size in sizes:
+        val = perm[start : start + size]
+        train = np.concatenate([perm[:start], perm[start + size :]])
+        yield train, val
         start += size
 
 
@@ -49,7 +49,7 @@ class Scaler:
 
     Computes and stores the mean and standard deviation of each
     column on :meth:`fit`, then applies the transformation via
-    :meth:`transform`.  :meth:`fit_transform` combines the two for
+    :meth:`transform`.  :meth:`fittransform` combines the two for
     convenience.
     """
 
@@ -75,7 +75,7 @@ class Scaler:
             raise RuntimeError("Scaler has not been fit.")
         return (x - self.mean) / self.std
 
-    def fit_transform(self, x: np.ndarray) -> np.ndarray:
+    def fittransform(self, x: np.ndarray) -> np.ndarray:
         """Fit on *x* and return the transformed array."""
         self.fit(x)
         return self.transform(x)
@@ -89,14 +89,14 @@ class Scaler:
 def resolve(
     name: str,
     hp: dict,
-    x_train: np.ndarray,
+    xtrain: np.ndarray,
     delta: float = 1e-4,
 ) -> Penalty:
     """Construct a :class:`Penalty` from a method name and hyperparameters.
 
     For geometry-aware methods (``"covridge"``, ``"sparridge"``)
     the stabilized Gram matrix ``C_{delta,n}`` is computed from
-    *x_train* and passed to the constructor.  The Gram matrix is
+    *xtrain* and passed to the constructor.  The Gram matrix is
     also computed unconditionally for non-geometry methods; the
     small overhead is the price of dispatch simplicity.
     """
@@ -109,32 +109,32 @@ def resolve(
             f"Method {name!r} accepts keys {cls.hp}, "
             f"but got unexpected {sorted(unknown)}."
         )
-    n, p = x_train.shape
-    gram = (x_train.T @ x_train) / n + delta * np.eye(p)
+    n, p = xtrain.shape
+    gram = (xtrain.T @ xtrain) / n + delta * np.eye(p)
     hp = dict(hp)
-    if "c_delta_n" in cls.hp:
-        hp.setdefault("c_delta_n", gram)
+    if "gram" in cls.hp:
+        hp.setdefault("gram", gram)
     return cls(**hp)
 
 
 def search(
     x: np.ndarray,
     y: np.ndarray,
-    layer_sizes: List[int],
+    shape: List[int],
     method: str,
-    param_grid: List[dict],
+    grid: List[dict],
     loss_fn: Loss,
-    n_splits: int = 5,
-    batch_size: int = 32,
+    folds: int = 5,
+    batch: int = 32,
     epochs: int = 500,
-    learning_rate: float = 1e-3,
-    early_stopping: bool = False,
+    lr: float = 1e-3,
+    earlystop: bool = False,
     patience: int = 10,
     seed: Optional[int] = None,
 ) -> Tuple[Optional[dict], float]:
     """Run k-fold cross-validation over a hyperparameter grid.
 
-    Each combination in *param_grid* is evaluated on *n_splits*
+    Each combination in *grid* is evaluated on *folds*
     folds.  A fresh network, penalty, and optimizer are created
     per fold to avoid state leakage.
 
@@ -143,67 +143,65 @@ def search(
     :class:`regulo.loss.Softmax`.
 
     Returns:
-        ``(best_params, best_score)`` -- the hyperparameters that
+        ``(best, score)`` -- the hyperparameters that
         achieved the highest mean fold score and that score.
     """
-    if not param_grid:
-        raise ValueError("param_grid must contain at least one entry.")
-    if n_splits < 2:
-        raise ValueError("n_splits must be at least 2.")
+    if not grid:
+        raise ValueError("grid must contain at least one entry.")
+    if folds < 2:
+        raise ValueError("folds must be at least 2.")
     task = "classification" if loss_fn.name == "softmax" else "regression"
     best_score = -float("inf")
-    best_params: Optional[dict] = None
+    best: Optional[dict] = None
     from regulo.score import Balanced, Mse
 
     metric = Balanced() if task == "classification" else Mse()
 
-    for params in param_grid:
+    for params in grid:
         scores: List[float] = []
-        for fold_idx, (train_idx, val_idx) in enumerate(
-            kfold(x.shape[0], n_splits, seed=seed)
-        ):
-            x_train_fold = x[train_idx]
-            x_val_fold = x[val_idx]
-            y_train_fold = y[train_idx]
-            y_val_fold = y[val_idx]
+        for train, val in kfold(x.shape[0], folds, seed=seed):
+            xtrain = x[train]
+            xval = x[val]
+            ytrain = y[train]
+            yval = y[val]
 
-            scaler = Scaler().fit(x_train_fold)
-            x_train_fold = scaler.transform(x_train_fold)
-            x_val_fold = scaler.transform(x_val_fold)
+            scaler = Scaler().fit(xtrain)
+            xtrain = scaler.transform(xtrain)
+            xval = scaler.transform(xval)
 
-            penalty = resolve(method, params, x_train_fold)
-            mlp = MLP(layer_sizes, seed=seed)
-            adam = Adam(learning_rate=learning_rate)
+            penalty = resolve(method, params, xtrain)
+            mlp = MLP(shape, seed=seed)
+            adam = Adam(lr=lr)
             runner = Runner(
                 mlp,
                 loss_fn,
                 penalty,
                 adam,
-                batch_size=batch_size,
+                batch=batch,
                 epochs=epochs,
-                early_stopping=early_stopping,
+                earlystop=earlystop,
                 patience=patience,
             )
             runner.fit(
-                x_train_fold,
-                y_train_fold,
-                x_val_fold,
-                y_val_fold,
+                xtrain,
+                ytrain,
+                xval,
+                yval,
                 seed=seed,
             )
-            preds = runner.predict(x_val_fold)
+            preds = runner.predict(xval)
             if task == "classification":
-                class_preds = runner.predict_class(x_val_fold)
-                score = metric(y_val_fold, class_preds)
+                class_preds = runner.classify(xval)
+                score = metric(yval, class_preds)
             else:
-                score = -metric(y_val_fold, preds)
+                score = -metric(yval, preds)
             scores.append(score)
 
         avg = float(np.mean(scores))
         if avg > best_score:
             best_score = avg
-            best_params = dict(params)
+            best = dict(params)
 
-    if best_params is None:
+    if best is None:
         raise RuntimeError("No grid point evaluated.")
-    return best_params, best_score
+    return best, best_score

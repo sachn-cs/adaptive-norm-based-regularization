@@ -62,7 +62,7 @@ def synth(
     p: int,
     k: int,
     rho: float,
-    sigma_noise: float,
+    noise: float,
     tau: float = 1.0,
     nonlinear: bool = False,
     seed: Optional[int] = None,
@@ -80,7 +80,7 @@ def synth(
         k: Number of informative (correlated) features.  Must
             satisfy ``0 <= k <= p``.
         rho: Pairwise correlation among informative features.
-        sigma_noise: Standard deviation of additive Gaussian noise.
+        noise: Standard deviation of additive Gaussian noise.
         tau: Standard deviation of the true coefficient vector.
         nonlinear: If ``True``, use ``sin(X) @ theta`` instead of
             ``X @ theta``.
@@ -95,8 +95,8 @@ def synth(
         raise ValueError("p must be positive.")
     if not (0 <= k <= p):
         raise ValueError(f"k must be in [0, p]; got k={k}, p={p}.")
-    if sigma_noise < 0:
-        raise ValueError("sigma_noise must be non-negative.")
+    if noise < 0:
+        raise ValueError("noise must be non-negative.")
     if tau < 0:
         raise ValueError("tau must be non-negative.")
     if k > 1 and not (-1.0 / (k - 1) < rho < 1.0):
@@ -107,17 +107,17 @@ def synth(
     rng = np.random.default_rng(seed)
     if k > 0:
         cov = equicorr(k, rho)
-        x_info = rng.multivariate_normal(mean=np.zeros(k), cov=cov, size=n)
+        info = rng.multivariate_normal(mean=np.zeros(k), cov=cov, size=n)
     else:
-        x_info = np.empty((n, 0))
-    x_noise = rng.standard_normal(size=(n, p - k))
-    x = np.hstack([x_info, x_noise])
+        info = np.empty((n, 0))
+    noise_x = rng.standard_normal(size=(n, p - k))
+    x = np.hstack([info, noise_x])
     theta = rng.normal(0.0, tau, size=k) if k > 0 else np.zeros(0)
     if k == 0:
         y = np.zeros(n)
     elif nonlinear:
-        y = np.sum(theta * np.sin(x_info), axis=1)
+        y = np.sum(theta * np.sin(info), axis=1)
     else:
-        y = np.ravel(x_info @ theta)
-    y = y + rng.normal(0.0, sigma_noise, size=n)
+        y = np.ravel(info @ theta)
+    y = y + rng.normal(0.0, noise, size=n)
     return x, y.reshape(-1, 1)

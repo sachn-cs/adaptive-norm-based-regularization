@@ -9,7 +9,7 @@ Edge-case conventions
 * **Empty arrays.**  Functions that compute means (MSE, MAE, RMSE)
   raise ``ZeroDivisionError`` or return ``NaN`` if passed empty
   inputs, consistent with ``numpy.mean``.
-* **Perfect predictions (R-squared).**  When ``ss_tot == 0``
+* **Perfect predictions (R-squared).**  When ``sstot == 0``
   (constant target), R-squared is ``1.0`` if the residuals are
   also zero, otherwise ``0.0``.
 * **No true samples for a class (balanced accuracy).**  Classes
@@ -30,7 +30,7 @@ class Metric(ABC):
     name: str = ""
 
     @abstractmethod
-    def __call__(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    def __call__(self, truth: np.ndarray, pred: np.ndarray) -> float:
         """Compute the metric value."""
         raise NotImplementedError
 
@@ -39,7 +39,7 @@ class Metric(ABC):
 
 
 class Mse(Metric):
-    """Mean squared error: ``(1/n) * sum((y_true - y_pred)**2)``.
+    """Mean squared error: ``(1/n) * sum((truth - pred)**2)``.
 
     Computed over the total scalar element count.  Compatible with
     ``numpy.mean`` semantics for arbitrary-shape arrays.
@@ -47,17 +47,17 @@ class Mse(Metric):
 
     name = "mse"
 
-    def __call__(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-        return float(np.mean((y_true - y_pred) ** 2))
+    def __call__(self, truth: np.ndarray, pred: np.ndarray) -> float:
+        return float(np.mean((truth - pred) ** 2))
 
 
 class Mae(Metric):
-    """Mean absolute error: ``(1/n) * sum(|y_true - y_pred|)``."""
+    """Mean absolute error: ``(1/n) * sum(|truth - pred|)``."""
 
     name = "mae"
 
-    def __call__(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-        return float(np.mean(np.abs(y_true - y_pred)))
+    def __call__(self, truth: np.ndarray, pred: np.ndarray) -> float:
+        return float(np.mean(np.abs(truth - pred)))
 
 
 class Rmse(Metric):
@@ -73,8 +73,8 @@ class Rmse(Metric):
     def __init__(self) -> None:
         self.mse = Mse()
 
-    def __call__(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-        return float(np.sqrt(self.mse(y_true, y_pred)))
+    def __call__(self, truth: np.ndarray, pred: np.ndarray) -> float:
+        return float(np.sqrt(self.mse(truth, pred)))
 
 
 class R2(Metric):
@@ -91,29 +91,29 @@ class R2(Metric):
 
     name = "r2"
 
-    def __call__(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-        ss_res = float(np.sum((y_true - y_pred) ** 2))
-        ss_tot = float(np.sum((y_true - np.mean(y_true)) ** 2))
-        if ss_tot == 0.0:
-            return 1.0 if ss_res == 0.0 else 0.0
-        return 1.0 - ss_res / ss_tot
+    def __call__(self, truth: np.ndarray, pred: np.ndarray) -> float:
+        ssres = float(np.sum((truth - pred) ** 2))
+        sstot = float(np.sum((truth - np.mean(truth)) ** 2))
+        if sstot == 0.0:
+            return 1.0 if ssres == 0.0 else 0.0
+        return 1.0 - ssres / sstot
 
 
 class Balanced(Metric):
     """Balanced accuracy for multi-class classification.
 
     Unweighted mean of per-class recall (sensitivity).  Classes
-    present only in ``y_pred`` are silently ignored.  Empty inputs
+    present only in ``pred`` are silently ignored.  Empty inputs
     return ``0.0``.
     """
 
     name = "balanced"
 
-    def __call__(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-        classes = np.unique(y_true)
-        per_class_acc = []
+    def __call__(self, truth: np.ndarray, pred: np.ndarray) -> float:
+        classes = np.unique(truth)
+        recall = []
         for c in classes:
-            mask = y_true == c
+            mask = truth == c
             if np.any(mask):
-                per_class_acc.append(float(np.mean(y_pred[mask] == c)))
-        return float(np.mean(per_class_acc)) if per_class_acc else 0.0
+                recall.append(float(np.mean(pred[mask] == c)))
+        return float(np.mean(recall)) if recall else 0.0

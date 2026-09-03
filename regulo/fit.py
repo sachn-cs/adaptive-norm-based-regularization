@@ -20,9 +20,9 @@ Gradient flow
 -------------
 Each update step computes:
 
-1. ``y_pred = mlp(x_batch)``
-2. ``loss = loss_fn.value(y_pred, y_batch)``
-3. ``dloss = loss_fn.grad(y_pred, y_batch)``
+1. ``y_pred = mlp(xchunk)``
+2. ``loss = loss_fn.value(y_pred, ychunk)``
+3. ``dloss = loss_fn.grad(y_pred, ychunk)``
 4. ``grads = mlp.grad(dloss)``
 5. ``grads["weights"][i] += penalty.grad(weight_i, i)`` for layers
    where ``penalty.applies(i)``.
@@ -64,71 +64,71 @@ class Runner:
     def __init__(
         self,
         mlp: MLP,
-        loss_fn: Loss,
+        loss: Loss,
         penalty: Penalty,
         adam: Adam,
-        batch_size: int = 32,
+        batch: int = 32,
         epochs: int = 500,
-        early_stopping: bool = False,
+        earlystop: bool = False,
         patience: int = 10,
     ) -> None:
         """Initialise the runner with all component objects."""
-        if batch_size <= 0:
-            raise ValueError("batch_size must be positive.")
+        if batch <= 0:
+            raise ValueError("batch must be positive.")
         if epochs <= 0:
             raise ValueError("epochs must be positive.")
         if patience <= 0:
             raise ValueError("patience must be positive.")
         self.mlp = mlp
-        self.loss_fn = loss_fn
+        self.loss = loss
         self.penalty = penalty
         self.adam = adam
-        self.batch_size = batch_size
+        self.batch = batch
         self.epochs = epochs
-        self.early_stopping = early_stopping
+        self.earlystop = earlystop
         self.patience = patience
-        self.task = "classification" if loss_fn.name == "softmax" else "regression"
+        self.task = "classification" if loss.name == "softmax" else "regression"
         self.history: Dict[str, List[float]] = {"train": [], "val": []}
 
     def fit(
         self,
-        x_train: np.ndarray,
-        y_train: np.ndarray,
-        x_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
+        xtrain: np.ndarray,
+        ytrain: np.ndarray,
+        xval: Optional[np.ndarray] = None,
+        yval: Optional[np.ndarray] = None,
         seed: Optional[int] = None,
     ) -> None:
-        """Train the network on *x_train* with optional validation.
+        """Train the network on *xtrain* with optional validation.
 
         Args:
-            x_train: Training inputs of shape ``(n_train, p)``.
-            y_train: Training targets.
-            x_val: Validation inputs (optional).  Required for
+            xtrain: Training inputs of shape ``(n_train, p)``.
+            ytrain: Training targets.
+            xval: Validation inputs (optional).  Required for
                 early stopping.
-            y_val: Validation targets (optional).
+            yval: Validation targets (optional).
             seed: Optional integer seed for mini-batch shuffling.
         """
-        if self.early_stopping and (x_val is None or y_val is None):
+        if self.earlystop and (xval is None or yval is None):
             raise ValueError(
-                "early_stopping requires x_val and y_val to be provided."
+                "earlystop requires xval and yval to be provided."
             )
-        n = x_train.shape[0]
+        count = xtrain.shape[0]
         rng = np.random.default_rng(seed)
-        best_val = float("inf")
-        patience_left = self.patience
-        best_state: Optional[Dict[str, List[np.ndarray]]] = None
+        best = float("inf")
+        wait = self.patience
+        snapshot: Optional[Dict[str, List[np.ndarray]]] = None
 
         for epoch in range(self.epochs):
-            indices = rng.permutation(n)
+            indices = rng.permutation(count)
             losses: List[float] = []
-            for start in range(0, n, self.batch_size):
-                end = min(start + self.batch_size, n)
+            for start in range(0, count, self.batch):
+                end = min(start + self.batch, count)
                 batch_idx = indices[start:end]
-                x_batch = x_train[batch_idx]
-                y_batch = y_train[batch_idx]
+                xchunk = xtrain[batch_idx]
+                ychunk = ytrain[batch_idx]
 
-                y_pred = self.mlp(x_batch)
-                loss = self.loss_fn.value(y_pred, y_batch)
+                ypred = self.mlp(xchunk)
+                loss = self.loss.value(ypred, ychunk)
 
                 # Penalty value and gradient over applicable layers.
                 for i, w in enumerate(self.mlp.weights):
@@ -136,7 +136,7 @@ class Runner:
                         loss += self.penalty.value(w, i)
                 losses.append(loss)
 
-                dloss = self.loss_fn.grad(y_pred, y_batch)
+                dloss = self.loss.grad(ypred, ychunk)
                 grads = self.mlp.grad(dloss)
                 for i, w in enumerate(self.mlp.weights):
                     if self.penalty.applies(i):
@@ -148,55 +148,55 @@ class Runner:
                     "weights": self.mlp.weights,
                     "biases": self.mlp.biases,
                 }
-                new_params = self.adam.step(params, grads)
+                updated = self.adam.step(params, grads)
                 # NaN / Inf guard: detect non-finite parameters or
                 # gradients and abort with a clear error pointing to
                 # the offending epoch and batch index.
-                for i, w in enumerate(new_params["weights"]):
+                for i, w in enumerate(updated["weights"]):
                     if not np.all(np.isfinite(w)):
                         raise FloatingPointError(
                             f"non-finite weight at epoch {epoch + 1}, "
-                            f"batch {start // self.batch_size}, layer {i}"
+                            f"batch {start // self.batch}, layer {i}"
                         )
-                for i, b in enumerate(new_params["biases"]):
+                for i, b in enumerate(updated["biases"]):
                     if not np.all(np.isfinite(b)):
                         raise FloatingPointError(
                             f"non-finite bias at epoch {epoch + 1}, "
-                            f"batch {start // self.batch_size}, layer {i}"
+                            f"batch {start // self.batch}, layer {i}"
                         )
-                self.mlp.load(new_params)
+                self.mlp.load(updated)
 
             self.history["train"].append(float(np.mean(losses)))
 
-            if x_val is not None and y_val is not None:
-                val_pred = self.mlp(x_val)
-                val_loss = self.loss_fn.value(val_pred, y_val)
+            if xval is not None and yval is not None:
+                valpred = self.mlp(xval)
+                valcost = self.loss.value(valpred, yval)
                 for i, w in enumerate(self.mlp.weights):
                     if self.penalty.applies(i):
-                        val_loss += self.penalty.value(w, i)
-                self.history["val"].append(float(val_loss))
+                        valcost += self.penalty.value(w, i)
+                self.history["val"].append(float(valcost))
 
-                if self.early_stopping:
-                    if val_loss < best_val:
-                        best_val = val_loss
-                        patience_left = self.patience
-                        best_state = self.mlp.state()
+                if self.earlystop:
+                    if valcost < best:
+                        best = valcost
+                        wait = self.patience
+                        snapshot = self.mlp.state()
                     else:
-                        patience_left -= 1
-                        if patience_left < 0:
-                            if best_state is not None:
-                                self.mlp.load(best_state)
+                        wait -= 1
+                        if wait < 0:
+                            if snapshot is not None:
+                                self.mlp.load(snapshot)
                             break
 
     def predict(self, x: np.ndarray) -> np.ndarray:
         """Generate raw predictions (logits for classification)."""
         return self.mlp(x)
 
-    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+    def proba(self, x: np.ndarray) -> np.ndarray:
         """Generate softmax probabilities (classification only)."""
         if self.task != "classification":
             raise NotImplementedError(
-                "predict_proba is only defined for classification "
+                "proba is only defined for classification "
                 "(Softmax loss) runners."
             )
         logits = self.mlp(x)
@@ -204,9 +204,9 @@ class Runner:
         exp_shifted = np.exp(shifted)
         return exp_shifted / np.sum(exp_shifted, axis=1, keepdims=True)
 
-    def predict_class(self, x: np.ndarray) -> np.ndarray:
+    def classify(self, x: np.ndarray) -> np.ndarray:
         """Generate class index predictions (classification only)."""
-        return np.argmax(self.predict_proba(x), axis=1)
+        return np.argmax(self.proba(x), axis=1)
 
     def reset(self, seed: Optional[int] = None) -> None:
         """Reset the network weights and optimizer state.
@@ -214,29 +214,29 @@ class Runner:
         Re-initialises :attr:`mlp` from scratch (with *seed*) and
         clears the optimizer state and training history.
         """
-        layer_sizes = self.mlp.layer_sizes
-        self.mlp = MLP(layer_sizes, seed=seed)
+        shape = self.mlp.shape
+        self.mlp = MLP(shape, seed=seed)
         self.adam.reset()
         self.history = {"train": [], "val": []}
 
-    def warm_start(self, path: str) -> None:
-        """Load weights only from a directory produced by :func:`regulo.store.save`.
+    def restart(self, path: str) -> None:
+        """Load weights only from a directory produced by :func:`save`.
 
         Validates the architecture recorded in ``meta.json`` against
-        :attr:`mlp.layer_sizes` and replaces the current weights
+        :attr:`mlp.shape` and replaces the current weights
         without disturbing optimizer state.
         """
+        import json
         from pathlib import Path
 
-        from regulo.store import load_meta
-
-        meta = load_meta(path)
-        if list(meta["layer_sizes"]) != list(self.mlp.layer_sizes):
-            raise ValueError(
-                f"Architecture mismatch: on-disk {meta['layer_sizes']} "
-                f"!= in-memory {self.mlp.layer_sizes}."
-            )
         p = Path(path)
+        with open(p / "meta.json") as f:
+            data = json.load(f)
+        if list(data["shape"]) != list(self.mlp.shape):
+            raise ValueError(
+                f"Architecture mismatch: on-disk {data['shape']} "
+                f"!= in-memory {self.mlp.shape}."
+            )
         weights = np.load(p / "weights.npz")
         biases = np.load(p / "biases.npz")
         for i, w in enumerate(self.mlp.weights):
@@ -246,6 +246,6 @@ class Runner:
 
     def __repr__(self) -> str:
         return (
-            f"Runner(mlp={self.mlp!r}, loss={self.loss_fn!r}, "
+            f"Runner(mlp={self.mlp!r}, loss={self.loss!r}, "
             f"penalty={self.penalty!r}, adam={self.adam!r})"
         )

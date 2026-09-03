@@ -6,10 +6,22 @@ import pytest
 from regulo.data import equicorr, synth
 
 
-def test_synth_shape():
+def test_synth_shape_small():
     x, y = synth(200, 20, 10, 0.25, 0.10, seed=0)
     assert x.shape == (200, 20)
     assert y.shape == (200, 1)
+
+
+def test_synth_shape_mid():
+    x, y = synth(1000, 200, 100, 0.25, 0.10, seed=0)
+    assert x.shape == (1000, 200)
+    assert y.shape == (1000, 1)
+
+
+def test_synth_shape_wide():
+    x, y = synth(500, 2000, 100, 0.25, 0.10, seed=0)
+    assert x.shape == (500, 2000)
+    assert y.shape == (500, 1)
 
 
 def test_synth_correlation():
@@ -64,27 +76,27 @@ def test_synth_different_seeds():
     assert not np.allclose(y1, y2)
 
 
-def test_synth_rejects_k_greater_than_p():
+def test_synth_rejects_k_gt_p():
     with pytest.raises(ValueError):
         synth(50, 5, 10, 0.25, 0.1)
 
 
-def test_synth_rejects_negative_n():
+def test_synth_rejects_neg_n():
     with pytest.raises(ValueError):
         synth(-1, 5, 2, 0.0, 0.1)
 
 
-def test_synth_rejects_negative_sigma():
-    with pytest.raises(ValueError):
-        synth(50, 5, 2, 0.0, -0.1)
-
-
-def test_synth_rejects_negative_p():
+def test_synth_rejects_neg_p():
     with pytest.raises(ValueError):
         synth(50, -1, 2, 0.0, 0.1)
 
 
-def test_synth_rejects_negative_tau():
+def test_synth_rejects_neg_sigma():
+    with pytest.raises(ValueError):
+        synth(50, 5, 2, 0.0, -0.1)
+
+
+def test_synth_rejects_neg_tau():
     with pytest.raises(ValueError):
         synth(50, 5, 2, 0.0, 0.1, tau=-1.0)
 
@@ -98,19 +110,17 @@ def test_equicorr_shape():
     sigma = equicorr(5, 0.3)
     assert sigma.shape == (5, 5)
     np.testing.assert_allclose(np.diag(sigma), 1.0)
-    # Off-diagonal entries equal rho; diagonal already checked above.
     sigma_off = sigma.copy()
     np.fill_diagonal(sigma_off, 0.3)
     np.testing.assert_allclose(sigma_off, 0.3)
 
 
-def test_equicorr_k_one_accepts_any_rho():
-    # For k=1 the matrix is just [[1]] regardless of rho.
+def test_equicorr_k_one():
     sigma = equicorr(1, 5.0)
     np.testing.assert_allclose(sigma, [[1.0]])
 
 
-def test_equicorr_rejects_non_pd_rho():
+def test_equicorr_rejects_non_pd():
     with pytest.raises(ValueError):
         equicorr(3, 1.0)
     with pytest.raises(ValueError):

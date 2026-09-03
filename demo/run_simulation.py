@@ -26,116 +26,116 @@ METHODS = ["none", "ridge", "lasso", "elastic_net", "covridge", "sparridge"]
 
 # A reduced grid for the demo; the full paper grid is {0.001, 0.01,
 # 0.1, 0.5, 0.9} (25 grid points per geometry-aware method).
-SIM_GRID = [0.01, 0.1, 0.5]
+GRID = [0.01, 0.1, 0.5]
 
 
-def build_param_grid(method: str) -> List[Dict[str, float]]:
+def buildgrid(method: str) -> List[Dict[str, float]]:
     """Return the hyperparameter search grid for *method*."""
     if method == "none":
         return [{}]
     if method == "ridge":
-        return [{"lambda_": v} for v in SIM_GRID]
+        return [{"lam": v} for v in GRID]
     if method == "lasso":
-        return [{"gamma": v} for v in SIM_GRID]
+        return [{"gamma": v} for v in GRID]
     if method == "elastic_net":
-        return [{"alpha": a, "gamma": g} for a in [0.5] for g in SIM_GRID]
+        return [{"alpha": a, "gamma": g} for a in [0.5] for g in GRID]
     if method == "covridge":
         return [
-            {"lambda1": a, "lambda2": b} for a in SIM_GRID for b in SIM_GRID
+            {"lambda1": a, "lambda2": b} for a in GRID for b in GRID
         ]
     if method == "sparridge":
-        return [{"lambda1": a, "gamma": g} for a in SIM_GRID for g in SIM_GRID]
+        return [{"lambda1": a, "gamma": g} for a in GRID for g in GRID]
     return []
 
 
 def evaluate(
     method: str,
-    x_train: np.ndarray,
-    y_train: np.ndarray,
-    x_test: np.ndarray,
-    y_test: np.ndarray,
-    layer_sizes: List[int],
+    xtrain: np.ndarray,
+    ytrain: np.ndarray,
+    xtest: np.ndarray,
+    ytest: np.ndarray,
+    shape: List[int],
     epochs: int,
     seed: int,
 ) -> Dict[str, float]:
     """Cross-validate, retrain, and evaluate a single method."""
-    param_grid = build_param_grid(method)
-    if len(param_grid) == 1 and param_grid[0] == {}:
-        best_params: Dict[str, float] = {}
+    grid = buildgrid(method)
+    if len(grid) == 1 and grid[0] == {}:
+        best: Dict[str, float] = {}
     else:
-        best_params, _ = search(
-            x_train,
-            y_train,
-            layer_sizes,
+        best, _ = search(
+            xtrain,
+            ytrain,
+            shape,
             method,
-            param_grid,
+            grid,
             loss_fn=Square(),
-            n_splits=3,
+            folds=3,
             epochs=max(50, epochs // 2),
-            learning_rate=1e-3,
+            lr=1e-3,
             seed=seed,
         )
 
-    scaler = Scaler().fit(x_train)
-    x_train_s = scaler.transform(x_train)
-    x_test_s = scaler.transform(x_test)
+    scaler = Scaler().fit(xtrain)
+    xtrain = scaler.transform(xtrain)
+    xtest = scaler.transform(xtest)
 
-    penalty = resolve(method, best_params, x_train_s)
-    mlp = MLP(layer_sizes, seed=seed)
-    adam = Adam(learning_rate=1e-3)
+    penalty = resolve(method, best, xtrain)
+    mlp = MLP(shape, seed=seed)
+    adam = Adam(lr=1e-3)
     runner = Runner(
         mlp,
         Square(),
         penalty,
         adam,
-        batch_size=32,
+        batch=32,
         epochs=epochs,
     )
-    runner.fit(x_train_s, y_train, seed=seed)
-    preds = runner.predict(x_test_s)
+    runner.fit(xtrain, ytrain, seed=seed)
+    preds = runner.predict(xtest)
     return {
-        "mse": Mse()(y_test, preds),
+        "mse": Mse()(ytest, preds),
     }
 
 
-def shuffle_split(
-    x: np.ndarray, y: np.ndarray, test_frac: float, seed: int
+def split(
+    x: np.ndarray, y: np.ndarray, frac: float, seed: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Random 75/25 (or other) train/test split using numpy."""
     n = x.shape[0]
     rng = np.random.default_rng(seed)
     perm = rng.permutation(n)
-    cut = int((1.0 - test_frac) * n)
+    cut = int((1.0 - frac) * n)
     return x[perm[:cut]], x[perm[cut:]], y[perm[:cut]], y[perm[cut:]]
 
 
-def run_dgp(
+def execute(
     dgp_factory,
     name: str,
-    layer_sizes: List[int],
-    n_reps: int,
-    rho_values: List[float],
-    sigma_values: List[float],
+    shape: List[int],
+    reps: int,
+    rhos: List[float],
+    noises: List[float],
     seed: int,
 ) -> None:
     """Run all methods on a DGP across multiple replications."""
-    for rho in rho_values:
-        for sigma in sigma_values:
-            print(f"\n{name} -- rho={rho}, sigma={sigma}")
+    for rho in rhos:
+        for noise in noises:
+            print(f"\n{name} -- rho={rho}, noise={noise}")
             results: Dict[str, List[float]] = {m: [] for m in METHODS}
-            for rep in range(n_reps):
-                x, y = dgp_factory(rho, sigma, rep)
-                x_train, x_test, y_train, y_test = shuffle_split(
-                    x, y, test_frac=0.25, seed=seed + rep
+            for rep in range(reps):
+                x, y = dgp_factory(rho, noise, rep)
+                xtrain, xtest, ytrain, ytest = split(
+                    x, y, frac=0.25, seed=seed + rep
                 )
                 for method in METHODS:
                     res = evaluate(
                         method,
-                        x_train,
-                        y_train,
-                        x_test,
-                        y_test,
-                        layer_sizes,
+                        xtrain,
+                        ytrain,
+                        xtest,
+                        ytest,
+                        shape,
                         epochs=100,
                         seed=seed + rep,
                     )
@@ -148,24 +148,24 @@ def run_dgp(
                 )
 
 
-def make_dgp(rho: float, sigma_noise: float, rep: int) -> tuple[np.ndarray, np.ndarray]:
+def linear(rho: float, noise: float, rep: int) -> tuple[np.ndarray, np.ndarray]:
     """DGP1 wrapper for the linear signal."""
     from regulo.data import synth
 
     return synth(
         n=200, p=20, k=10,
-        rho=rho, sigma_noise=sigma_noise,
+        rho=rho, noise=noise,
         nonlinear=False, seed=rep,
     )
 
 
-def make_dgp_nonlinear(rho: float, sigma_noise: float, rep: int) -> tuple[np.ndarray, np.ndarray]:
+def nonlinear(rho: float, noise: float, rep: int) -> tuple[np.ndarray, np.ndarray]:
     """DGP1 wrapper for the nonlinear (sinusoidal) signal."""
     from regulo.data import synth
 
     return synth(
         n=200, p=20, k=10,
-        rho=rho, sigma_noise=sigma_noise,
+        rho=rho, noise=noise,
         nonlinear=True, seed=rep,
     )
 
@@ -180,27 +180,27 @@ def main() -> None:
         "--seed", type=int, default=0, help="Random seed (default: 0)."
     )
     args = parser.parse_args()
-    n_reps = 100 if args.full else 5
+    reps = 100 if args.full else 5
     seed = args.seed
 
     print("=== Simulation Reproduction ===")
-    print(f"Replications: {n_reps}")
+    print(f"Replications: {reps}")
     print(f"Seed: {seed}")
 
-    run_dgp(
-        make_dgp,
+    execute(
+        linear,
         "DGP1 (linear)",
         [20, 64, 32, 1],
-        n_reps,
+        reps,
         [0.25, 0.75],
         [0.10, 2.00],
         seed,
     )
-    run_dgp(
-        make_dgp_nonlinear,
+    execute(
+        nonlinear,
         "DGP1 (nonlinear)",
         [20, 64, 32, 1],
-        n_reps,
+        reps,
         [0.25, 0.75],
         [0.10, 2.00],
         seed,

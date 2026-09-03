@@ -25,12 +25,12 @@ class Adam:
     """Adam optimizer with adaptive learning rates.
 
     Maintains exponential moving averages of past gradients (first
-    moment, ``mean``) and past squared gradients (second moment,
-    ``variance``).  At each step the bias-corrected estimates are
-    used.
+    moment, :attr:`mean`) and past squared gradients (second
+    moment, :attr:`variance`).  At each step the bias-corrected
+    estimates are used.
 
     Attributes:
-        learning_rate: Step size ``eta``.
+        lr: Step size ``eta``.
         beta1: Exponential decay rate for the first moment.
         beta2: Exponential decay rate for the second moment.
         epsilon: Small constant added to the denominator for
@@ -44,7 +44,7 @@ class Adam:
 
     def __init__(
         self,
-        learning_rate: float = 1e-3,
+        lr: float = 1e-3,
         beta1: float = 0.9,
         beta2: float = 0.999,
         epsilon: float = 1e-8,
@@ -56,9 +56,9 @@ class Adam:
             raise ValueError("beta2 must be in [0, 1).")
         if epsilon <= 0.0:
             raise ValueError("epsilon must be positive.")
-        if learning_rate <= 0.0:
-            raise ValueError("learning_rate must be positive.")
-        self.learning_rate = learning_rate
+        if lr <= 0.0:
+            raise ValueError("lr must be positive.")
+        self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
@@ -74,8 +74,8 @@ class Adam:
         """Perform one Adam update and return the new parameters.
 
         On first contact with each parameter array the corresponding
-        ``mean`` and ``variance`` buffers are lazily created as zero
-        arrays of identical shape.
+        :attr:`mean` and :attr:`variance` buffers are lazily created
+        as zero arrays of identical shape.
 
         The step counter :attr:`clock` is incremented *before* bias
         correction, so that ``clock = 1`` on the very first call.
@@ -109,12 +109,12 @@ class Adam:
                 v = self.beta2 * v + (1.0 - self.beta2) * (g**2)
                 self.mean[key][i] = m
                 self.variance[key][i] = v
-                m_hat = m / (1.0 - self.beta1**self.clock)
-                v_hat = v / (1.0 - self.beta2**self.clock)
-                p_new = p - self.learning_rate * m_hat / (
-                    np.sqrt(v_hat) + self.epsilon
+                mhat = m / (1.0 - self.beta1**self.clock)
+                vhat = v / (1.0 - self.beta2**self.clock)
+                updated_p = p - self.lr * mhat / (
+                    np.sqrt(vhat) + self.epsilon
                 )
-                updated[key].append(p_new)
+                updated[key].append(updated_p)
         return updated
 
     def reset(self) -> None:
@@ -125,7 +125,7 @@ class Adam:
 
     def __repr__(self) -> str:
         return (
-            f"Adam(learning_rate={self.learning_rate}, "
+            f"Adam(lr={self.lr}, "
             f"beta1={self.beta1}, beta2={self.beta2}, "
             f"epsilon={self.epsilon})"
         )

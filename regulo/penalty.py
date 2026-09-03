@@ -145,24 +145,24 @@ class Ridge(Penalty):
 
     Equivalent to a Gaussian prior on the weights.  Smooth and
     strongly convex in ``W``; encourages small magnitudes without
-    inducing sparsity.  Setting ``lambda_ = 0`` reduces this to
+    inducing sparsity.  Setting ``lam = 0`` reduces this to
     :class:`Void`.
     """
 
     name: ClassVar[str] = "ridge"
-    hp: ClassVar[tuple[str, ...]] = ("lambda_",)
+    hp: ClassVar[tuple[str, ...]] = ("lam",)
 
-    def __init__(self, lambda_: float) -> None:
+    def __init__(self, lam: float) -> None:
         """Store the non-negative regularization strength."""
-        if lambda_ < 0:
-            raise ValueError("lambda_ must be non-negative.")
-        self.lambda_ = lambda_
+        if lam < 0:
+            raise ValueError("lam must be non-negative.")
+        self.lam = lam
 
     def value(self, weight: np.ndarray, layer: int) -> float:
-        return self.lambda_ * float(np.sum(weight**2))
+        return self.lam * float(np.sum(weight**2))
 
     def grad(self, weight: np.ndarray, layer: int) -> np.ndarray:
-        return 2.0 * self.lambda_ * weight
+        return 2.0 * self.lam * weight
 
 
 class Lasso(Penalty):
@@ -232,13 +232,13 @@ class Covridge(Penalty):
     """
 
     name: ClassVar[str] = "covridge"
-    hp: ClassVar[tuple[str, ...]] = ("lambda1", "lambda2", "c_delta_n")
+    hp: ClassVar[tuple[str, ...]] = ("lambda1", "lambda2", "gram")
 
     def __init__(
         self,
         lambda1: float,
         lambda2: float,
-        c_delta_n: np.ndarray,
+        gram: np.ndarray,
     ) -> None:
         """Store penalties and precompute ``C_{delta,n}^{1/2}``."""
         if lambda1 < 0 or lambda2 < 0:
@@ -247,7 +247,7 @@ class Covridge(Penalty):
         self.lambda2 = lambda2
         # Symmetric eigendecomposition: eigh returns real eigenvalues
         # and avoids the complex round-trip of sqrtm.
-        eigvals, eigvecs = np.linalg.eigh(c_delta_n)
+        eigvals, eigvecs = np.linalg.eigh(gram)
         eigvals = np.maximum(eigvals, 0.0)
         self.csqrt = eigvecs @ np.diag(np.sqrt(eigvals)) @ eigvecs.T
 
@@ -274,20 +274,20 @@ class Sparridge(Penalty):
     """
 
     name: ClassVar[str] = "sparridge"
-    hp: ClassVar[tuple[str, ...]] = ("lambda1", "gamma", "c_delta_n")
+    hp: ClassVar[tuple[str, ...]] = ("lambda1", "gamma", "gram")
 
     def __init__(
         self,
         lambda1: float,
         gamma: float,
-        c_delta_n: np.ndarray,
+        gram: np.ndarray,
     ) -> None:
         """Store penalties and precompute ``C_{delta,n}^{1/2}``."""
         if lambda1 < 0 or gamma < 0:
             raise ValueError("lambda1 and gamma must be non-negative.")
         self.lambda1 = lambda1
         self.gamma = gamma
-        eigvals, eigvecs = np.linalg.eigh(c_delta_n)
+        eigvals, eigvecs = np.linalg.eigh(gram)
         eigvals = np.maximum(eigvals, 0.0)
         self.csqrt = eigvecs @ np.diag(np.sqrt(eigvals)) @ eigvecs.T
 

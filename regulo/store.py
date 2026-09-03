@@ -19,9 +19,7 @@ from regulo.loss import Loss
 from regulo.net import MLP
 from regulo.penalty import Penalty, REGISTRY
 
-__all__ = ["save", "load", "load_meta", "meta"]
-
-META_FILE = "meta.json"
+__all__ = ["save", "load", "snapshot", "meta"]
 
 
 def meta(runner: Runner) -> Dict:
@@ -30,13 +28,13 @@ def meta(runner: Runner) -> Dict:
 
     return {
         "version": __version__,
-        "layer_sizes": list(runner.mlp.layer_sizes),
-        "loss": runner.loss_fn.name,
-        "loss_kwargs": loss_kwargs(runner.loss_fn),
+        "shape": list(runner.mlp.shape),
+        "loss": runner.loss.name,
+        "lossargs": lossargs(runner.loss),
         "penalty": runner.penalty.name,
-        "penalty_hp": penalty_hp(runner.penalty),
+        "penaltyargs": penaltyargs(runner.penalty),
         "adam": {
-            "learning_rate": runner.adam.learning_rate,
+            "lr": runner.adam.lr,
             "beta1": runner.adam.beta1,
             "beta2": runner.adam.beta2,
             "epsilon": runner.adam.epsilon,
@@ -56,8 +54,8 @@ def save(runner: Runner, path: str) -> None:
     """
     p = Path(path)
     p.mkdir(parents=True, exist_ok=True)
-    with open(p / META_FILE, "w") as f:
-        json.dump(meta(runner), f, indent=2, default=json_default)
+    with open(p / "meta.json", "w") as f:
+        json.dump(meta(runner), f, indent=2, default=serialize)
     np.savez(
         p / "weights.npz",
         **{f"w{i}": w for i, w in enumerate(runner.mlp.weights)},
@@ -66,51 +64,47 @@ def save(runner: Runner, path: str) -> None:
         p / "biases.npz",
         **{f"b{i}": b for i, b in enumerate(runner.mlp.biases)},
     )
-    adam_data = {}
+    data = {}
     for group in runner.adam.mean:
         for i, buf in enumerate(runner.adam.mean[group]):
-            adam_data[f"{group}_{i}_mean"] = (
+            data[f"{group}_{i}_mean"] = (
                 np.zeros_like(runner.mlp.weights[i])
                 if buf is None
                 else buf
             )
         for i, buf in enumerate(runner.adam.variance[group]):
-            adam_data[f"{group}_{i}_variance"] = (
+            data[f"{group}_{i}_variance"] = (
                 np.zeros_like(runner.mlp.weights[i])
                 if buf is None
                 else buf
             )
-    adam_data["clock"] = np.array(runner.adam.clock)
-    np.savez(p / "adam.npz", **adam_data)
+    data["clock"] = np.array(runner.adam.clock)
+    np.savez(p / "adam.npz", **data)
 
 
-def load_meta(path: str) -> Dict:
-    """Read and return the metadata dictionary at *path*."""
+def snapshot(runner: Runner) -> Dict:
+    """Alias for :func:`meta`.  Return the metadata dictionary."""
+    return meta(runner)
+
+
+def load(path: str) -> Runner:
+    """Reconstruct a Runner from *path*."""
     p = Path(path)
-    with open(p / META_FILE) as f:
+    with open(p / "meta.json") as f:
         data = json.load(f)
     major = data["version"].split(".")[0]
     lib_major = __version__.split(".")[0]
     if major != lib_major:
         raise ValueError(
-            f"Major version mismatch: on-disk {data['version']!r}, "
+            f"version mismatch: on-disk {data['version']!r}, "
             f"library {__version__!r}."
         )
-    return data
-
-
-def load(path: str) -> Runner:
-    """Reconstruct a Runner from *path*."""
-    from regulo.loss import Softmax
-
-    data = load_meta(path)
-    mlp = MLP(data["layer_sizes"])
-    loss_cls = resolve_loss(data["loss"])
-    loss = loss_cls(**data["loss_kwargs"])
-    penalty = resolve_penalty(data)
+    mlp = MLP(data["shape"])
+    loss_cls = losslookup(data["loss"])
+    loss = loss_cls(**data["lossargs"])
+    penalty = penaltylookup(data)
     adam = Adam(**data["adam"])
 
-    p = Path(path)
     weights = np.load(p / "weights.npz")
     biases = np.load(p / "biases.npz")
     for i, w in enumerate(mlp.weights):
@@ -121,17 +115,17 @@ def load(path: str) -> Runner:
     runner = Runner(mlp, loss, penalty, adam)
 
     # Restore Adam state if compatible.
-    adam_path = p / "adam.npz"
-    if adam_path.exists():
-        loaded = np.load(adam_path)
+    adampath = p / "adam.npz"
+    if adampath.exists():
+        loaded = np.load(adampath)
         runner.adam.clock = int(loaded["clock"])
         for group in runner.adam.mean:
             for i in range(len(runner.adam.mean[group])):
-                key_mean = f"{group}_{i}_mean"
-                key_var = f"{group}_{i}_variance"
-                if key_mean in loaded.files:
-                    runner.adam.mean[group][i] = loaded[key_mean]
-                    runner.adam.variance[group][i] = loaded[key_var]
+                keymean = f"{group}_{i}_mean"
+                keyvar = f"{group}_{i}_variance"
+                if keymean in loaded.files:
+                    runner.adam.mean[group][i] = loaded[keymean]
+                    runner.adam.variance[group][i] = loaded[keyvar]
                 else:
                     runner.adam.mean[group][i] = np.zeros_like(
                         runner.mlp.weights[i] if group == "weights" else runner.mlp.biases[i]
@@ -142,21 +136,21 @@ def load(path: str) -> Runner:
     return runner
 
 
-def loss_kwargs(loss: Loss) -> Dict:
+def lossargs(loss: Loss) -> Dict:
     return {}
 
 
-def penalty_hp(penalty: Penalty) -> Dict:
+def penaltyargs(penalty: Penalty) -> Dict:
     out = {}
     for name in penalty.hp:
-        if name == "c_delta_n":
+        if name == "gram":
             continue
         if hasattr(penalty, name):
             out[name] = getattr(penalty, name)
     return out
 
 
-def resolve_loss(name: str):
+def losslookup(name: str):
     from regulo.loss import Softmax, Square
 
     table = {"square": Square, "softmax": Softmax}
@@ -165,20 +159,20 @@ def resolve_loss(name: str):
     return table[name]
 
 
-def resolve_penalty(data: Dict) -> Penalty:
+def penaltylookup(data: Dict) -> Penalty:
     name = data["penalty"]
-    hp = dict(data["penalty_hp"])
+    hp = dict(data["penaltyargs"])
     if name in ("covridge", "sparridge"):
-        # Re-derive a synthetic C matrix from layer_sizes[0]; the
+        # Re-derive a synthetic gram matrix from shape[0]; the
         # user's actual training data was used to build the original,
         # so the loaded penalty applies only to the first layer.
-        p = data["layer_sizes"][0]
-        hp["c_delta_n"] = np.eye(p)
+        p = data["shape"][0]
+        hp["gram"] = np.eye(p)
     cls = REGISTRY[name]
     return cls(**hp)
 
 
-def json_default(obj):
+def serialize(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, np.integer):
