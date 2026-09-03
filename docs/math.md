@@ -65,7 +65,7 @@ C_{delta, n} = C_n + delta I_p,   delta > 0
 ```
 
 **Implementation:** :func:`regulo.tune.resolve` computes
-``(x_train.T @ x_train) / n + delta * I_p`` from the training data.
+``(xtrain.T @ xtrain) / n + delta * I_p`` from the training data.
 
 ### Covridge
 
@@ -133,9 +133,9 @@ factor lives in the loss backward pass
 ```
 m_t = beta1 m_{t-1} + (1 - beta1) g_t
 v_t = beta2 v_{t-1} + (1 - beta2) g_t^2
-m_hat_t = m_t / (1 - beta1^t)
-v_hat_t = v_t / (1 - beta2^t)
-theta_{t+1} = theta_t - eta m_hat_t / (sqrt(v_hat_t) + epsilon)
+mhat_t = m_t / (1 - beta1^t)
+vhat_t = v_t / (1 - beta2^t)
+theta_{t+1} = theta_t - lr * mhat_t / (sqrt(vhat_t) + epsilon)
 ```
 
 **Implementation:** :class:`regulo.adam.Adam`.

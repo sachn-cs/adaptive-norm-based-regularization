@@ -12,7 +12,7 @@ R^{p x h_1}``, ``W^{(2)} in R^{h_1 x h_2}``, ``W^{(3)} in R^{h_2
 x q}``, we minimize
 
 ```
-J_tilde(theta) = L(y, f(X; theta)) + lambda * Omega(W)
+J_tilde(theta) = L(y, f(X; theta)) + lam * Omega(W)
 ```
 
 where ``L`` is MSE or softmax cross-entropy and ``Omega`` is one of
@@ -23,7 +23,7 @@ six penalties.
 | Class      | Penalty                                                        | Gradient                                            |
 |------------|----------------------------------------------------------------|-----------------------------------------------------|
 | ``Void``   | ``0``                                                          | ``0``                                               |
-| ``Ridge``  | ``lambda * ||W||_F^2``                                         | ``2 lambda W``                                      |
+| ``Ridge``  | ``lam * ||W||_F^2``                                            | ``2 lam W``                                         |
 | ``Lasso``  | ``gamma * ||W||_1``                                            | ``gamma * sign(W)`` (subgradient, ``sign(0) = 0``)  |
 | ``ElasticNet`` | ``alpha gamma ||W||_1 + (1 - alpha)/2 * ||W||_F^2``         | ``alpha gamma sign(W) + (1 - alpha) W``             |
 | ``Covridge`` | ``lambda1 ||C^{1/2} W||_F^2 + lambda2 ||W||_F^2``            | ``2 lambda1 C W + 2 lambda2 W``                     |
@@ -88,7 +88,7 @@ the response is linear or sinusoidal in the informative block.
 
 ## Cross-validation
 
-:class:`regulo.tune.search` runs ``n_splits``-fold CV with
-optional early stopping.  The validation fold is scored by either
-``-MSE`` (regression) or balanced accuracy (classification); the
-grid point with the highest mean fold score wins.
+:class:`regulo.tune.search` runs ``folds``-fold CV with optional
+early stopping.  The validation fold is scored by either ``-MSE``
+(regression) or balanced accuracy (classification); the grid
+point with the highest mean fold score wins.

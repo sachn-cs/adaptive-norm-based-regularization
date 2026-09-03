@@ -12,14 +12,14 @@ using NumPy.
 ### Why use pure NumPy instead of PyTorch/TensorFlow?
 
 The goal is faithful reproduction and educational clarity. Using NumPy allows
-each component (network, optimizer, regularizer, loss) to be implemented from
+each component (network, optimizer, penalty, loss) to be implemented from
 scratch, making the mathematics transparent and auditable.
 
 ### Can I use this in production?
 
 This project is primarily a research reproduction. While the code is well-tested,
 it is optimized for clarity rather than performance. For production use, consider
-implementing the regularizers in your preferred deep learning framework.
+implementing the penalties in your preferred deep learning framework.
 
 ## Installation
 
@@ -35,52 +35,55 @@ No. This is a pure NumPy implementation that runs on CPU only.
 
 ```bash
 pip install -e ".[dev]"
-pip install black isort mypy
 ```
 
 ## Usage
 
-### How do I compare all regularizers?
+### How do I compare all penalties?
 
-Use the demo scripts:
+Use the demo script:
 
 ```bash
 python demo/run_simulation.py      # Synthetic data
-python demo/run_real_data.py       # Real datasets
 ```
 
-### How do I add a custom regularizer?
+### How do I add a custom penalty?
 
-Implement the `Regularizer` interface:
+Implement the :class:`Penalty` interface:
 
 ```python
-from regulo.regularizers import Regularizer
+from regulo.penalty import Penalty
+import numpy as np
 
-class MyRegularizer(Regularizer):
-    def __init__(self, my_param: float):
-        self.my_param = my_param
+class MyPenalty(Penalty):
+    name = "mine"
+    hp = ("weight",)
 
-    def penalty(self, weights: np.ndarray) -> float:
-        """Compute the regularization penalty."""
-        return self.my_param * np.sum(weights ** 2)
+    def __init__(self, weight: float):
+        self.weight = weight
 
-    def gradient(self, weights: np.ndarray) -> np.ndarray:
-        """Compute the gradient of the penalty with respect to weights."""
-        return 2 * self.my_param * weights
+    def value(self, w, layer):
+        return self.weight * float(np.sum(w ** 2))
+
+    def grad(self, w, layer):
+        return 2.0 * self.weight * w
+```
+
+Then add it to :data:`regulo.penalty.REGISTRY`:
+
+```python
+from regulo.penalty import REGISTRY
+REGISTRY["mine"] = MyPenalty
 ```
 
 ### How do I change the network architecture?
 
-Modify the layer sizes and activations:
+Pass a different ``shape`` argument to :class:`MLP`:
 
 ```python
-from regulo.network import Network
+from regulo.net import MLP
 
-# 3-layer network with different widths
-net = Network(
-    layer_sizes=[10, 128, 64, 32, 1],
-    activations=["relu", "relu", "relu", "linear"],
-)
+net = MLP([10, 128, 64, 32, 1])
 ```
 
 ### What are Covridge and Sparridge?
@@ -101,22 +104,11 @@ high-dimensional settings.
 pytest tests/ -v
 ```
 
-### How many tests are there?
-
-The test suite contains 81 tests across 7 test files covering:
-- Regularizer penalties and gradients
-- Network forward/backward propagation
-- Finite-difference gradient checks
-- Adam optimizer convergence
-- Loss function correctness
-- Metric calculations
-- End-to-end integration
-
 ### How do I run a specific test?
 
 ```bash
-pytest tests/test_regularizers.py -v
-pytest tests/test_network.py -k "test_backward_shape" -v
+pytest tests/test_penalty.py -v
+pytest tests/test_net.py -k backward_shape -v
 ```
 
 ## Development
@@ -124,14 +116,14 @@ pytest tests/test_network.py -k "test_backward_shape" -v
 ### How do I format my code?
 
 ```bash
-black .
-isort .
+ruff format regulo tests demo
+ruff check regulo tests demo
 ```
 
 ### How do I check types?
 
 ```bash
-mypy regulo tests demo
+mypy regulo
 ```
 
 ### How do I contribute?
@@ -155,8 +147,3 @@ NumPy performance depends on BLAS configuration. Check with:
 ```bash
 python -c "import numpy; numpy.show_config()"
 ```
-
-### GSE9476 dataset not available
-
-The GSE9476 dataset may not be available on OpenML. The demo script will
-print instructions for manual download if this occurs.

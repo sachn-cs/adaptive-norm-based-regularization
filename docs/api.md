@@ -30,9 +30,9 @@ No-op penalty.  Always returns ``0.0`` and zero gradient.
 
 ### `class Ridge(Penalty)`
 
-**Constructor:** `Ridge(lambda_: float)`
+**Constructor:** `Ridge(lam: float)`
 
-Penalty: ``lambda ||W||_F^2``.  Gradient: ``2 lambda W``.
+Penalty: ``lam ||W||_F^2``.  Gradient: ``2 lam W``.
 
 ---
 
@@ -57,7 +57,7 @@ Gradient: ``alpha gamma sign(W) + (1 - alpha) W``.
 ### `class Covridge(Penalty)`
 
 **Constructor:**
-`Covridge(lambda1: float, lambda2: float, c_delta_n: np.ndarray)`
+`Covridge(lambda1: float, lambda2: float, gram: np.ndarray)`
 
 Geometry-aware shrinkage along the eigenvectors of ``C``.  Applies
 only to the first weight matrix.
@@ -72,7 +72,7 @@ Gradient: ``2 lambda1 C W + 2 lambda2 W``.
 ### `class Sparridge(Penalty)`
 
 **Constructor:**
-`Sparridge(lambda1: float, gamma: float, c_delta_n: np.ndarray)`
+`Sparridge(lambda1: float, gamma: float, gram: np.ndarray)`
 
 Geometry-aware shrinkage plus L1 sparsity.  Applies only to the
 first weight matrix.
@@ -124,15 +124,16 @@ exactly ``0.0`` loss.  ``target`` must be integer dtype in
 
 ### `class MLP`
 
-**Constructor:** `MLP(layer_sizes: list[int], seed: int | None = None)`
+**Constructor:** `MLP(shape: list[int], seed: int | None = None)`
 
 Feedforward MLP with ReLU hidden activations and a linear output.
 
 #### `__call__(x) -> np.ndarray`
 
-Forward pass; caches pre-activations and activations.
+Forward pass; caches pre-activations (``MLP.pre``) and activations
+(``MLP.post``).
 
-#### `grad(dloss_dy) -> dict`
+#### `grad(dloss) -> dict`
 
 Backward pass returning ``{"weights": [...], "biases": [...]}``.
 
@@ -146,7 +147,7 @@ Replace parameters from a ``state`` dict.
 
 ---
 
-### `xavier(fan_in, fan_out, rng) -> np.ndarray`
+### `xavier(fanin, fanout, rng) -> np.ndarray`
 
 Sample a weight matrix from the Xavier-uniform distribution
 using the supplied ``np.random.Generator``.
@@ -158,7 +159,7 @@ using the supplied ``np.random.Generator``.
 ### `class Adam`
 
 **Constructor:**
-`Adam(learning_rate=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8)`
+`Adam(lr=1e-3, beta1=0.9, beta2=0.999, epsilon=1e-8)`
 
 #### `step(params, grads) -> dict`
 
@@ -174,11 +175,11 @@ Zero the step counter and moment buffers.
 
 ### `class Metric(ABC)`
 
-#### `__call__(y_true, y_pred) -> float`
+#### `__call__(truth, pred) -> float`
 
 ### `class Mse`, `class Mae`, `class Rmse`, `class R2`, `class Balanced`
 
-Concrete metrics.
+Concrete metrics.  All take ``truth`` and ``pred`` arrays.
 
 ---
 
@@ -189,31 +190,30 @@ Concrete metrics.
 Build a ``k x k`` equi-correlation covariance matrix.  Validates
 ``rho in (-1/(k-1), 1)``.
 
-### `synth(n, p, k, rho, sigma_noise, tau=1.0, nonlinear=False, seed=None) -> (X, y)`
+### `synth(n, p, k, rho, noise, tau=1.0, nonlinear=False, seed=None) -> (X, y)`
 
 Generate synthetic data.  Validates ``n > 0``, ``p > 0``,
-``0 <= k <= p``, ``rho`` in PD range, ``sigma_noise >= 0``,
-``tau >= 0``.
+``0 <= k <= p``, ``rho`` in PD range, ``noise >= 0``, ``tau >= 0``.
 
 ---
 
 ## Tuning (`regulo.tune`)
 
-### `kfold(n, n_splits, seed=None) -> Iterator[tuple[np.ndarray, np.ndarray]]`
+### `kfold(n, folds, seed=None) -> Iterator[tuple[np.ndarray, np.ndarray]]`
 
-Yield ``(train_idx, val_idx)`` for ``n_splits`` shuffled folds.
+Yield ``(train, val)`` for ``folds`` shuffled folds.
 
 ### `class Scaler`
 
 Per-column z-score scaler.  Methods: ``fit(x)``, ``transform(x)``,
-``fit_transform(x)``.
+``fittransform(x)``.
 
-### `resolve(name, hp, x_train, delta=1e-4) -> Penalty`
+### `resolve(name, hp, xtrain, delta=1e-4) -> Penalty`
 
 Construct a penalty from a name + hyperparameter dict + training
 data.  Uses the :data:`REGISTRY`.
 
-### `search(x, y, layer_sizes, method, param_grid, loss_fn, ...) -> (best_params, best_score)`
+### `search(x, y, shape, method, grid, loss_fn, ...) -> (best, score)`
 
 Run K-fold CV over a parameter grid.  Returns the highest-scoring
 configuration.
@@ -237,10 +237,9 @@ versions.
 Return the metadata dictionary that would be written by
 :meth:`save`.
 
-### `load_meta(path) -> dict`
+### `snapshot(runner) -> dict`
 
-Read the ``meta.json`` from ``path/`` without constructing a
-runner.
+Alias for :func:`meta`.
 
 ---
 
@@ -249,9 +248,9 @@ runner.
 ### `class Runner`
 
 **Constructor:**
-`Runner(mlp, loss_fn, penalty, adam, batch_size=32, epochs=500, early_stopping=False, patience=10)`
+`Runner(mlp, loss, penalty, adam, batch=32, epochs=500, earlystop=False, patience=10)`
 
-#### `fit(x_train, y_train, x_val=None, y_val=None, seed=None) -> None`
+#### `fit(xtrain, ytrain, xval=None, yval=None, seed=None) -> None`
 
 Train the network.
 
@@ -259,11 +258,11 @@ Train the network.
 
 Raw forward pass; for classification returns logits.
 
-#### `predict_proba(x) -> np.ndarray`
+#### `proba(x) -> np.ndarray`
 
 Classification only.  Softmax probabilities.
 
-#### `predict_class(x) -> np.ndarray`
+#### `classify(x) -> np.ndarray`
 
 Classification only.  Argmax class indices.
 
@@ -271,6 +270,6 @@ Classification only.  Argmax class indices.
 
 Re-initialise the network weights and zero the optimiser state.
 
-#### `warm_start(path) -> None`
+#### `restart(path) -> None`
 
 Replace the weights from a directory produced by :func:`save`.

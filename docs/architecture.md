@@ -19,7 +19,7 @@ regulo/
 ├── score.py        # Metric ABC + Mse, Mae, Rmse, R2, Balanced
 ├── data.py         # equicorr, synth (DGP generators)
 ├── tune.py         # kfold, Scaler, resolve, search
-├── store.py        # save, load, meta (npz + json, no pickle)
+├── store.py        # save, load, snapshot, meta (npz + json)
 └── fit.py          # Runner (training loop)
 ```
 
@@ -35,24 +35,24 @@ regulo/
 [Scaler.fit_transform on train]
     |
     v
-[C_{delta, n}] --> [resolve(method, hp, x)]
+[Gram matrix] --> [resolve(method, hp, xtrain)]
     |
     v
 [Penalty subclass]   <--  Penalty.applies(layer)
     |                       ^
     v                       |
-[MLP.forward]               |
+[MLP.__call__]              |
     |                       |
     v                       |
 [Runner.fit] ---------------+
     |
     +-- Mini-batch sampling
-    +-- Forward pass (cache_z, cache_a)
+    +-- Forward pass (cache pre, post)
     +-- Loss + penalty value (only where applies)
     +-- Loss + penalty gradient (only where applies)
     +-- Adam step
     +-- NaN guard
-    +-- Validation / early stopping
+    +-- Validation / earlystop
     |
     v
 [Metrics: Mse, Mae, Rmse, R2, Balanced]

@@ -33,26 +33,26 @@ from regulo import (
     Adam, MLP, Mse, Ridge, Runner, Scalar, Square, synth,
 )
 
-x, y = synth(n=200, p=20, k=10, rho=0.25, sigma_noise=0.10, seed=42)
+x, y = synth(n=200, p=20, k=10, rho=0.25, noise=0.10, seed=42)
 rng = np.random.default_rng(42)
 perm = rng.permutation(200)
-x_train, x_test = x[perm[:150]], x[perm[150:]]
-y_train, y_test = y[perm[:150]], y[perm[150:]]
+xtrain, xtest = x[perm[:150]], x[perm[150:]]
+ytrain, ytest = y[perm[:150]], y[perm[150:]]
 
-scaler = Scaler().fit(x_train)
-x_train_s = scaler.transform(x_train)
-x_test_s = scaler.transform(x_test)
+scaler = Scaler().fit(xtrain)
+xtrain = scaler.transform(xtrain)
+xtest = scaler.transform(xtest)
 
 runner = Runner(
     MLP([20, 64, 32, 1], seed=42),
     Square(),
-    Ridge(lambda_=0.01),
-    Adam(learning_rate=1e-3),
-    batch_size=32,
+    Ridge(lam=0.01),
+    Adam(lr=1e-3),
+    batch=32,
     epochs=500,
 )
-runner.fit(x_train_s, y_train, x_val=x_test_s, y_val=y_test, seed=42)
-print(Mse()(y_test, runner.predict(x_test_s)))
+runner.fit(xtrain, ytrain, xval=xtest, yval=ytest, seed=42)
+print(Mse()(ytest, runner.predict(xtest)))
 ```
 
 ### Classification
@@ -68,18 +68,18 @@ x = rng.standard_normal((200, 10))
 y = rng.integers(0, 3, size=(200,))
 
 scaler = Scaler().fit(x)
-x_s = scaler.transform(x)
+x = scaler.transform(x)
 
 runner = Runner(
     MLP([10, 64, 32, 3], seed=0),
     Softmax(),
     Lasso(gamma=0.01),
-    Adam(learning_rate=1e-3),
-    batch_size=32,
+    Adam(lr=1e-3),
+    batch=32,
     epochs=200,
 )
-runner.fit(x_s, y, seed=0)
-preds = runner.predict_class(x_s)
+runner.fit(x, y, seed=0)
+preds = runner.classify(x)
 print("balanced accuracy:", Balanced()(y, preds))
 ```
 
@@ -90,11 +90,11 @@ from regulo import search
 
 best, score = search(
     x, y,
-    layer_sizes=[10, 64, 32, 3],
+    shape=[10, 64, 32, 3],
     method="lasso",
-    param_grid=[{"gamma": v} for v in (1e-3, 1e-2, 1e-1)],
+    grid=[{"gamma": v} for v in (1e-3, 1e-2, 1e-1)],
     loss_fn=Softmax(),
-    n_splits=5,
+    folds=5,
     epochs=200,
     seed=0,
 )

@@ -58,22 +58,22 @@ from regulo import (
     Adam, MLP, Ridge, Runner, Square, synth, Mse,
 )
 
-x, y = synth(n=200, p=20, k=10, rho=0.25, sigma_noise=0.10, seed=0)
+x, y = synth(n=200, p=20, k=10, rho=0.25, noise=0.10, seed=0)
 rng = np.random.default_rng(0)
 perm = rng.permutation(200)
-x_train, x_test = x[perm[:150]], x[perm[150:]]
-y_train, y_test = y[perm[:150]], y[perm[150:]]
+xtrain, xtest = x[perm[:150]], x[perm[150:]]
+ytrain, ytest = y[perm[:150]], y[perm[150:]]
 
 runner = Runner(
     MLP([20, 64, 32, 1], seed=0),
     Square(),
-    Ridge(lambda_=0.01),
-    Adam(learning_rate=1e-3),
-    batch_size=32,
+    Ridge(lam=0.01),
+    Adam(lr=1e-3),
+    batch=32,
     epochs=500,
 )
-runner.fit(x_train, y_train, seed=0)
-print("test MSE:", Mse()(y_test, runner.predict(x_test)))
+runner.fit(xtrain, ytrain, seed=0)
+print("test MSE:", Mse()(ytest, runner.predict(xtest)))
 ```
 
 ## Hyperparameter search
@@ -83,18 +83,18 @@ from regulo import (
     Adam, MLP, Ridge, Runner, Scalar, Square, search, synth,
 )
 
-x, y = synth(n=200, p=20, k=10, rho=0.25, sigma_noise=0.10, seed=0)
+x, y = synth(n=200, p=20, k=10, rho=0.25, noise=0.10, seed=0)
 best, score = search(
     x, y,
-    layer_sizes=[20, 64, 32, 1],
+    shape=[20, 64, 32, 1],
     method="ridge",
-    param_grid=[{"lambda_": v} for v in (1e-3, 1e-2, 1e-1, 0.5)],
+    grid=[{"lam": v} for v in (1e-3, 1e-2, 1e-1, 0.5)],
     loss_fn=Square(),
-    n_splits=5,
+    folds=5,
     epochs=200,
     seed=0,
 )
-print("best lambda:", best, "score:", score)
+print("best lam:", best, "score:", score)
 ```
 
 ## Reproducing a paper table
@@ -113,11 +113,11 @@ python demo/run_simulation.py --seed 0 --full    # 100 reps
 | Class      | Penalty                                                        | Hyperparameters                |
 |------------|----------------------------------------------------------------|--------------------------------|
 | ``Void``   | ``0``                                                          | none                           |
-| ``Ridge``  | ``lambda ||W||_F^2``                                           | ``lambda_``                    |
+| ``Ridge``  | ``lam ||W||_F^2``                                              | ``lam``                        |
 | ``Lasso``  | ``gamma ||W||_1``                                              | ``gamma``                      |
 | ``ElasticNet`` | ``alpha gamma ||W||_1 + (1 - alpha)/2 ||W||_F^2``           | ``alpha``, ``gamma``           |
-| ``Covridge`` | ``lambda1 ||C^{1/2} W||_F^2 + lambda2 ||W||_F^2``            | ``lambda1``, ``lambda2``, ``C`` |
-| ``Sparridge`` | ``lambda1 ||C^{1/2} W||_F^2 + gamma ||W||_1``                | ``lambda1``, ``gamma``, ``C``  |
+| ``Covridge`` | ``lambda1 ||C^{1/2} W||_F^2 + lambda2 ||W||_F^2``            | ``lambda1``, ``lambda2``, ``gram`` |
+| ``Sparridge`` | ``lambda1 ||C^{1/2} W||_F^2 + gamma ||W||_1``                | ``lambda1``, ``gamma``, ``gram``  |
 
 ``Covridge`` and ``Sparridge`` apply only to the first weight
 matrix (where the empirical Gram matrix is defined).
