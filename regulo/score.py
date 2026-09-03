@@ -71,10 +71,10 @@ class Rmse(Metric):
     name = "rmse"
 
     def __init__(self) -> None:
-        self._mse = Mse()
+        self.mse = Mse()
 
     def __call__(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
-        return float(np.sqrt(self._mse(y_true, y_pred)))
+        return float(np.sqrt(self.mse(y_true, y_pred)))
 
 
 class R2(Metric):
