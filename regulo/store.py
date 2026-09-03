@@ -1,9 +1,9 @@
-"""Model serialization without pickle.
+"""Model serialization via NPZ + JSON.
 
 Save and load :class:`regulo.fit.Runner` state to a directory of
-NPZ and JSON files.  Pickle is deliberately avoided to prevent
-arbitrary code execution on load; the schema is stable and
-versioned.
+NPZ and JSON files.  No ``pickle`` is used; the on-disk format
+cannot execute arbitrary code on load.  The schema is stable and
+versioned against :data:`regulo.__version__`.
 """
 
 import json
