@@ -58,9 +58,9 @@ This document compares every major component of the paper against its implementa
 
 | Component | Paper | Implementation | Status |
 |---|---|---|---|
-| DGP1 | (200, 20, 10) | `make_dgp1` | **Exact** |
-| DGP2 | (1000, 200, 100) | `make_dgp2` | **Exact** |
-| DGP3 | (500, 2000, 100) | `make_dgp3` | **Exact** |
+| DGP1 | (200, 20, 10) | `synth` | **Exact** |
+| DGP2 | (1000, 200, 100) | `synth(n=1000, p=200, k=100, ...)` | **Exact** |
+| DGP3 | (500, 2000, 100) | `synth(n=500, p=2000, k=100, ...)` | **Exact** |
 | Correlation | ρ ∈ {0.25, 0.75} | Parameter `rho` | **Exact** |
 | Noise | σ ∈ {0.10, 2.00} | Parameter `sigma_noise` | **Exact** |
 | Linear signal | `y = Xθ + ε` | `nonlinear=False` | **Exact** |

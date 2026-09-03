@@ -1,126 +1,110 @@
 # Getting Started
 
-This guide will walk you through installing and running the first experiment
-with Adaptive Norm-Based Regularization.
+This guide walks through installing **regulo** and running the
+first experiment.
 
 ## Prerequisites
 
-- Python 3.10 or later
-- pip (Python package installer)
-- Git
+* Python 3.10 or later
+* pip
 
-## Quick Install
+## Quick install
 
 ```bash
-# Clone the repository
-git clone https://github.com/sachncs/adaptive-norm-based-regularization.git
-cd adaptive-norm-based-regularization
+git clone https://github.com/sachncs/regulo
+cd regulo
+pip install -e .
+```
 
-# Create a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate   # Linux/macOS
-# venv\Scripts\activate    # Windows
+For development (tests, doctest):
 
-# Install with dev dependencies
+```bash
 pip install -e ".[dev]"
 ```
 
-## Verify Installation
+## Verify installation
 
 ```bash
-# Run the test suite
 pytest tests/ -v
-
-# All 81 tests should pass
 ```
 
-## Your First Experiment
+All tests should pass and coverage should exceed 95%.
 
-### Run a Quick Simulation
+## Your first experiment
 
-The simplest way to see the project in action:
+### Run the bundled simulation
 
 ```bash
-python demo/run_simulation.py
+python demo/run_simulation.py --seed 0
 ```
 
-This runs a single replication of the paper's simulation experiments (Tables 1-3),
-comparing all 6 regularizers on synthetic data.
+This runs 5 replications of all six penalties on a small
+synthetic DGP and prints MSE mean / standard deviation.
 
-### Run on Real Data
-
-```bash
-python demo/run_real_data.py
-```
-
-This applies the regularizers to the UCI Energy Efficiency dataset and
-GSE9476 leukemia dataset.
-
-### Programmatic Usage
+### Programmatic usage
 
 ```python
 import numpy as np
-from anbr.network import Network
-from anbr.losses import MSELoss
-from anbr.optimizer import Adam
-from anbr.regularizers import Covridge
-from anbr.trainer import Trainer
-
-# Generate sample data
-np.random.seed(42)
-X = np.random.randn(200, 10)
-true_weights = np.random.randn(10, 1)
-y = X @ true_weights + 0.1 * np.random.randn(200, 1)
-
-# Build a feedforward network
-net = Network(
-    layer_sizes=[10, 64, 32, 1],
-    activations=["relu", "relu", "linear"],
+from regulo import (
+    Adam, MLP, Ridge, Runner, Square, synth, Mse,
 )
 
-# Configure training
-loss_fn = MSELoss()
-optimizer = Adam(net.parameters(), lr=1e-3)
-regularizer = Covridge(lam1=0.01, lam2=0.001)
+x, y = synth(n=200, p=20, k=10, rho=0.25, noise=0.10, seed=0)
+rng = np.random.default_rng(0)
+perm = rng.permutation(200)
+xtrain, xtest = x[perm[:150]], x[perm[150:]]
+ytrain, ytest = y[perm[:150]], y[perm[150:]]
 
-# Train
-trainer = Trainer(net, loss_fn, optimizer, regularizer=regularizer)
-history = trainer.fit(X, y, epochs=500, batch_size=32)
-
-# Make predictions
-predictions = net.forward(X[:5])
-print("Predictions shape:", predictions.shape)
+runner = Runner(
+    MLP([20, 64, 32, 1], seed=0),
+    Square(),
+    Ridge(lam=0.01),
+    Adam(lr=1e-3),
+    batch=32,
+    epochs=500,
+)
+runner.fit(xtrain, ytrain, seed=0)
+print("test MSE:", Mse()(ytest, runner.predict(xtest)))
 ```
 
-## Next Steps
+## Reproducing a paper experiment
 
-- Read the [API Reference](api.md) for detailed documentation of all modules
-- See [Architecture](architecture.md) for design decisions and data flow
-- Check [Usage Guide](usage.md) for advanced training configurations
-- Review [Fidelity Report](fidelity.md) for paper-to-code comparison
+See [docs/repro.md](docs/repro.md) for the full reproduction
+recipe.
+
+## Next steps
+
+* [docs/api.md](docs/api.md) -- full API reference
+* [docs/architecture.md](docs/architecture.md) -- module map and
+  design decisions
+* [docs/math.md](docs/math.md) -- equation-by-equation mapping to
+  the paper
+* [docs/limits.md](docs/limits.md) -- explicit limitations
 
 ## Troubleshooting
 
-### Import Errors
+### Import errors
 
-If you see `ModuleNotFoundError: No module named 'anbr'`, ensure you've
-installed in editable mode:
+If you see ``ModuleNotFoundError: No module named 'regulo'``,
+make sure you've installed the package:
 
 ```bash
-pip install -e ".[dev]"
+pip install -e .
 ```
 
-### Test Failures
+### Test failures
 
-If tests fail, check that your Python version is 3.10+:
+Tests require Python 3.10 or later and NumPy 1.23+:
 
 ```bash
 python --version
+python -c "import numpy; print(numpy.__version__)"
 ```
 
-### Performance Issues
+### Performance
 
-For large-scale experiments, ensure NumPy is using optimized BLAS:
+For large-scale experiments, ensure NumPy is linked against an
+optimised BLAS:
 
 ```bash
 python -c "import numpy; numpy.show_config()"

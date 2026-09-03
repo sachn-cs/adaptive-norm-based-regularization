@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "anbr"
-version = "0.1.0"
+name = "regulo"
+version = "0.2.0"
 description = "Pure Python reproduction of Adaptive Norm-Based Regularization for Neural Networks"
 readme = "README.md"
 license = {text = "MIT"}
@@ -24,7 +24,7 @@ keywords = [
     "research-reproduction",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
@@ -41,25 +41,27 @@ classifiers = [
 dependencies = [
     "numpy>=1.23",
     "scipy>=1.9",
-    "scikit-learn>=1.1",
-    "pandas>=1.5",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "pytest-cov>=4.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/sachncs/adaptive-norm-based-regularization"
-Repository = "https://github.com/sachncs/adaptive-norm-based-regularization"
-Issues = "https://github.com/sachncs/adaptive-norm-based-regularization/issues"
-Documentation = "https://github.com/sachncs/adaptive-norm-based-regularization/tree/master/docs"
-Changelog = "https://github.com/sachncs/adaptive-norm-based-regularization/blob/master/CHANGELOG.md"
+Homepage = "https://github.com/sachncs/regulo"
+Repository = "https://github.com/sachncs/regulo"
+Issues = "https://github.com/sachncs/regulo/issues"
+Documentation = "https://github.com/sachncs/regulo/tree/master/docs"
+Changelog = "https://github.com/sachncs/regulo/blob/master/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["anbr*", "tests*", "demo*"]
+include = ["regulo*"]
+
+[tool.setuptools.package-data]
+regulo = ["py.typed"]
 
 [tool.black]
 line-length = 80
@@ -67,12 +69,8 @@ line-length = 80
 [tool.isort]
 profile = "black"
 line_length = 80
-known_first_party = ["anbr"]
+known_first_party = ["regulo"]
 
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = false
-
-[[tool.mypy.overrides]]
-module = "sklearn.*"
-ignore_missing_imports = true

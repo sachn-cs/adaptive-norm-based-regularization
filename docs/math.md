@@ -1,224 +1,211 @@
 # Mathematical Foundations
 
-This document restates the core mathematics from the paper and maps each equation to its implementation.
+This document restates the core mathematics from the paper and
+maps each equation to its implementation in regulo.
 
----
+## Notation
 
-## 1. Notation
+* Bold lowercase: vectors ``x in R^p``
+* Bold uppercase: matrices ``W in R^{p x q}``
+* ``||x||_q``: ``q``-norm
+* ``||A||_F``: Frobenius norm
 
-- Bold lowercase: vectors `x ∈ R^p`
-- Bold uppercase: matrices `W ∈ R^{p×q}`
-- `‖x‖_q`: ℓ_q norm
-- `‖A‖_F`: Frobenius norm
-- `⟨A, B⟩ = tr(A^T B)`: trace inner product
-
----
-
-## 2. Regularized Objective
-
-The generic regularized objective for a neural network with parameters θ is:
+## Regularized objective
 
 ```
-J̃(θ; X, y) = J(θ) + λ Ω(W)
+J_tilde(theta; X, y) = J(theta) + Omega(W)
 ```
 
-where `J(θ)` is the empirical loss (MSE or cross-entropy) and `Ω(W)` is a penalty on the weight matrices.
+where ``J`` is the empirical loss (MSE or cross-entropy) and
+``Omega`` is a penalty on the weight matrices.
 
-**Implementation:** `anbr/trainer.py` computes `total_loss = loss + reg_penalty` for each mini-batch.
+**Implementation:** :class:`regulo.fit.Runner` adds
+``penalty.value(W, layer)`` to the data loss on every applicable
+layer at each mini-batch step.
 
----
+## Standard penalties
 
-## 3. Standard Penalties
-
-### 3.1 Ridge
-
-```
-Ω_ridge(W) = ‖W‖_F^2 = Σ_{i,j} w_{ij}^2
-```
-
-Gradient: `∇_W Ω_ridge = 2 W`
-
-**Implementation:** `anbr/regularizers.py::Ridge`
-
-### 3.2 Lasso
+### Ridge
 
 ```
-Ω_lasso(W) = ‖W‖_1 = Σ_{i,j} |w_{ij}|
+Omega(W) = ||W||_F^2 = sum_{i,j} w_{i,j}^2
 ```
 
-Subgradient: `∇_W Ω_lasso = sign(W)` (with `sign(0)=0`)
+Gradient: ``grad Omega = 2 W``.
 
-**Implementation:** `anbr/regularizers.py::Lasso`
+**Implementation:** :class:`regulo.penalty.Ridge`.
 
-### 3.3 Elastic Net
-
-```
-Ω_en(W) = α γ ‖W‖_1 + (1-α)/2 ‖W‖_F^2
-```
-
-**Implementation:** `anbr/regularizers.py::ElasticNet`
-
----
-
-## 4. Geometry-Aware Penalties
-
-### 4.1 Empirical Gram Matrix
-
-For a representation matrix `H ∈ R^{n×p}`:
+### Lasso
 
 ```
-C_n = (1/n) H^T H
-C_{δ,n} = C_n + δ I_p,   δ > 0
+Omega(W) = ||W||_1 = sum_{i,j} |w_{i,j}|
 ```
 
-**Implementation:** `anbr/cv.py::build_regularizer` computes `c_n = (x_train.T @ x_train) / n` and `c_delta_n = c_n + delta * np.eye(p)`.
+Subgradient: ``grad Omega = sign(W)`` (with ``sign(0) := 0``).
 
-### 4.2 Covridge
+**Implementation:** :class:`regulo.penalty.Lasso`.
 
-```
-Ω_covridge(W) = λ_1 ‖C_{δ,n}^{1/2} W‖_F^2 + λ_2 ‖W‖_F^2
-```
-
-Using the spectral decomposition `C_{δ,n} = U Λ U^T`, the penalty becomes:
+### Elastic Net
 
 ```
-Ω_covridge(W) = Σ_{i=1}^p (λ_1 (μ_{i} + δ) + λ_2) ‖w̃_i‖_2^2
+Omega(W) = alpha gamma ||W||_1 + (1 - alpha)/2 ||W||_F^2
 ```
 
-where `w̃_i` is the i-th row of `Ũ = U^T W`.
+Gradient: ``grad Omega = alpha gamma sign(W) + (1 - alpha) W``.
 
-Gradient:
-```
-∇_W Ω_covridge = 2 λ_1 C_{δ,n} W + 2 λ_2 W
-```
+**Implementation:** :class:`regulo.penalty.ElasticNet`.
 
-**Implementation:** `anbr/regularizers.py::Covridge`
-- `_c_sqrt` is precomputed via eigendecomposition.
-- `penalty` computes `‖C^{1/2} W‖_F^2` directly.
-- `gradient` computes `2 λ_1 C W + 2 λ_2 W` using `C = _c_sqrt @ _c_sqrt`.
+## Geometry-aware penalties
 
-### 4.3 Sparridge
+### Empirical Gram matrix
 
 ```
-Ω_sparridge(W) = λ_1 ‖C_{δ,n}^{1/2} W‖_F^2 + γ ‖W‖_1
+C_n = (1/n) X^T X
+C_{delta, n} = C_n + delta I_p,   delta > 0
+```
+
+**Implementation:** :func:`regulo.tune.resolve` computes
+``(xtrain.T @ xtrain) / n + delta * I_p`` from the training data.
+
+### Covridge
+
+```
+Omega(W) = lambda1 ||C^{1/2} W||_F^2 + lambda2 ||W||_F^2
+```
+
+Using the spectral decomposition ``C = U Lambda U^T``, the
+penalty becomes:
+
+```
+Omega(W) = sum_{i=1}^{p} (lambda1 (mu_i + delta) + lambda2) ||w_tilde_i||_2^2
+```
+
+where ``w_tilde_i`` is the ``i``-th row of ``U^T W``.
+
+Gradient: ``grad Omega = 2 lambda1 C W + 2 lambda2 W``.
+
+**Implementation:** :class:`regulo.penalty.Covridge`.
+``csqrt`` is precomputed via symmetric eigendecomposition.
+``value`` computes ``||C^{1/2} W||_F^2`` directly.
+``grad`` computes ``2 lambda1 C W + 2 lambda2 W`` using
+``C = csqrt @ csqrt``.
+
+### Sparridge
+
+```
+Omega(W) = lambda1 ||C^{1/2} W||_F^2 + gamma ||W||_1
 ```
 
 Gradient (subgradient):
-```
-∇_W Ω_sparridge = 2 λ_1 C_{δ,n} W + γ sign(W)
-```
+``grad Omega = 2 lambda1 C W + gamma sign(W)``.
 
-**Implementation:** `anbr/regularizers.py::Sparridge`
+**Implementation:** :class:`regulo.penalty.Sparridge`.
 
----
+## Network forward pass
 
-## 5. Network Forward Pass
-
-For a feedforward ReLU network with `L` hidden layers:
+For a feedforward ReLU network with two hidden layers:
 
 ```
 z^{(1)} = W^{(1)} x + b^{(1)}
 h^{(1)} = ReLU(z^{(1)})
-...
-h^{(L)} = ReLU(z^{(L)})
-ŷ = z^{(L+1)} = W^{(L+1)} h^{(L)} + b^{(L+1)}
+z^{(2)} = W^{(2)} h^{(1)} + b^{(2)}
+h^{(2)} = ReLU(z^{(2)})
+y_hat   = W^{(3)} h^{(2)} + b^{(3)}
 ```
 
-**Implementation:** `anbr/network.py::FullyConnectedNetwork.forward`
+**Implementation:** :meth:`regulo.net.MLP.__call__`.
 
----
-
-## 6. Backpropagation
-
-Given the gradient of the loss w.r.t. the output `δ^{(L+1)} = ∂J/∂ŷ`, the backpropagation rules are:
+## Back-propagation
 
 ```
-∂J/∂W^{(l)} = (1/n) (h^{(l-1)})^T δ^{(l)}
-∂J/∂b^{(l)} = (1/n) Σ_i δ_i^{(l)}
-δ^{(l-1)} = (δ^{(l)} (W^{(l)})^T) ⊙ I(z^{(l-1)} > 0)
+dJ/dW^{(l)} = (1/n) (h^{(l-1)})^T delta^{(l)}
+dJ/db^{(l)} = (1/n) sum_i delta_i^{(l)}
+delta^{(l-1)} = (delta^{(l)} (W^{(l)})^T) * Indicator(z^{(l-1)} > 0)
 ```
 
-**Implementation:** `anbr/network.py::FullyConnectedNetwork.backward`
+**Implementation:** :meth:`regulo.net.MLP.grad`.  The ``1/n``
+factor lives in the loss backward pass
+(:meth:`regulo.loss.Square.grad`,
+:meth:`regulo.loss.Softmax.grad`).
 
-**Important design choice:** The `1/n` factor is included in the loss backward pass (`MSELoss.backward` and `CrossEntropyLoss.backward`), so the network backward pass computes the unscaled matrix product `a_prev.T @ delta`.
-
----
-
-## 7. Adam Optimizer
-
-For each parameter `p` and gradient `g`:
+## Adam optimizer
 
 ```
-m_t = β_1 m_{t-1} + (1-β_1) g_t
-v_t = β_2 v_{t-1} + (1-β_2) g_t^2
-m̂_t = m_t / (1 - β_1^t)
-v̂_t = v_t / (1 - β_2^t)
-p_{t+1} = p_t - η m̂_t / (√v̂_t + ε)
+m_t = beta1 m_{t-1} + (1 - beta1) g_t
+v_t = beta2 v_{t-1} + (1 - beta2) g_t^2
+mhat_t = m_t / (1 - beta1^t)
+vhat_t = v_t / (1 - beta2^t)
+theta_{t+1} = theta_t - lr * mhat_t / (sqrt(vhat_t) + epsilon)
 ```
 
-**Implementation:** `anbr/optimizer.py::Adam`
+**Implementation:** :class:`regulo.adam.Adam`.
 
----
+## Loss functions
 
-## 8. Loss Functions
-
-### 8.1 Mean Squared Error
+### Mean squared error
 
 ```
-J_MSE = (1/n) Σ_i (ŷ_i - y_i)^2
-∂J/∂ŷ = (2/n) (ŷ - y)
+J_MSE = (1/N) sum_i (y_hat_i - y_i)^2
+dJ/dy_hat = (2/N) (y_hat - y)
 ```
 
-**Implementation:** `anbr/losses.py::MSELoss`
+where ``N = y_hat.size`` (the total scalar element count).
 
-### 8.2 Softmax Cross-Entropy
+**Implementation:** :class:`regulo.loss.Square`.
 
-```
-J_CE = -(1/n) Σ_i log( p_{i, y_i} )
-where p_{i,c} = exp(z_{i,c}) / Σ_{c'} exp(z_{i,c'})
-∂J/∂z = (1/n) (P - Y_onehot)
-```
-
-**Implementation:** `anbr/losses.py::CrossEntropyLoss`
-
----
-
-## 9. Data Generating Processes
-
-### 9.1 Covariance Structure
-
-Informative predictors `x_{1:k}` are drawn from `N(0, Σ)` where:
+### Softmax cross-entropy
 
 ```
-Σ_{ii} = 1,   Σ_{ij} = ρ  (i ≠ j)
+J_CE = -(1/n) sum_i log p_{i, y_i}
+where p_{i, c} = exp(z_{i, c}) / sum_{c'} exp(z_{i, c'})
+dJ/dz = (1/n) (P - Y_onehot)
 ```
 
-Noise predictors `x_{k+1:p}` are i.i.d. standard normal.
+The softmax subtracts the row-max logit before exponentiation
+(numerically stable) and probabilities are clipped at ``1e-15``
+before the log so confident-correct predictions yield exactly
+``0.0`` loss.
 
-### 9.2 Response Models
+**Implementation:** :class:`regulo.loss.Softmax`.
+
+## Data generating processes
+
+### Covariance structure
+
+Informative predictors ``x_{1:k}`` are drawn from
+``N(0, Sigma)`` where ``Sigma`` has ``Sigma_{i,i} = 1`` and
+``Sigma_{i,j} = rho`` for ``i != j``.  Noise predictors
+``x_{k+1:p}`` are i.i.d. standard normal.
+
+**Implementation:** :func:`regulo.data.equicorr` builds ``Sigma``.
+
+### Response models
 
 Linear:
 ```
-y = Σ_{j=1}^k θ_j^* x_j + ε,   ε ~ N(0, σ^2)
+y = sum_{j=1}^{k} theta*_j x_j + epsilon,  epsilon ~ N(0, sigma^2)
 ```
 
 Nonlinear:
 ```
-y = Σ_{j=1}^k θ_j^* sin(x_j) + ε
+y = sum_{j=1}^{k} theta*_j sin(x_j) + epsilon
 ```
 
-**Implementation:** `anbr/data.py::make_dgp`
+**Implementation:** :func:`regulo.data.synth`.
 
----
+## Theoretical results
 
-## 10. Theoretical Results (Not Implemented)
+### Theorem 5.1 (Covridge asymptotic normality)
 
-### Theorem 5.1 (Covridge)
+Under fixed-design assumptions A1-A3, the Covridge estimator is
+asymptotically Gaussian with sandwich covariance involving ``Q``,
+``C_delta``, and the tuning parameters.
 
-Under fixed-design assumptions A1–A3, the Covridge estimator is asymptotically Gaussian with sandwich covariance involving `Q`, `C_δ`, and the tuning parameters.
+### Theorem 5.2 (Sparridge convergence)
 
-### Theorem 5.2 (Sparridge)
+Under assumptions A1-A4, the scaled estimation error converges to
+the minimizer of a random convex criterion.  When ``gamma = 0``
+the limit is Gaussian; when ``gamma > 0`` the limit is non-Gaussian.
 
-Under assumptions A1–A4, the scaled estimation error converges to the minimizer of a random convex criterion. When the ℓ1 scaling vanishes (`γ=0`), the limit is Gaussian; when `γ>0`, the limit is non-Gaussian.
-
-These theorems are **not implemented** in this reproduction because they describe asymptotic statistical properties, not algorithmic steps.
+These theorems describe asymptotic statistical properties and are
+not implemented in this reproduction.
