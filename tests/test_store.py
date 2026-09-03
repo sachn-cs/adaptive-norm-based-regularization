@@ -15,7 +15,7 @@ from regulo.penalty import Ridge, Void
 from regulo.store import load, meta, save, snapshot
 
 
-def test_meta_fields():
+def test_metafields():
     runner = Runner(MLP([3, 4, 1]), Square(), Void(), Adam())
     m = meta(runner)
     assert m["version"] == __version__
@@ -26,7 +26,7 @@ def test_meta_fields():
     assert m["adam"]["lr"] == 1e-3
 
 
-def test_save_load_round_trip(tmp_path: Path):
+def test_saveloadroundtrip(tmp_path: Path):
     rng = np.random.default_rng(0)
     x = rng.standard_normal((20, 3))
     y = rng.standard_normal((20, 1))
@@ -38,9 +38,9 @@ def test_save_load_round_trip(tmp_path: Path):
         epochs=3,
     )
     runner.fit(x, y, seed=0)
-    weights_before = [w.copy() for w in runner.mlp.weights]
-    biases_before = [b.copy() for b in runner.mlp.biases]
-    clock_before = runner.adam.clock
+    weights = [w.copy() for w in runner.mlp.weights]
+    biases = [b.copy() for b in runner.mlp.biases]
+    clock = runner.adam.clock
 
     target = tmp_path / "model"
     save(runner, str(target))
@@ -51,11 +51,11 @@ def test_save_load_round_trip(tmp_path: Path):
 
     loaded = load(str(target))
     assert loaded.mlp.shape == [3, 4, 1]
-    for wn, wo in zip(loaded.mlp.weights, weights_before):
+    for wn, wo in zip(loaded.mlp.weights, weights):
         np.testing.assert_array_equal(wn, wo)
-    for bn, bo in zip(loaded.mlp.biases, biases_before):
+    for bn, bo in zip(loaded.mlp.biases, biases):
         np.testing.assert_array_equal(bn, bo)
-    assert loaded.adam.clock == clock_before
+    assert loaded.adam.clock == clock
     assert loaded.adam.lr == 1e-2
 
 
@@ -71,22 +71,22 @@ def test_snapshot():
         shutil.rmtree(target, ignore_errors=True)
 
 
-def test_load_rejects_version_mismatch(tmp_path: Path):
+def test_loadrejectsversionmismatch(tmp_path: Path):
     runner = Runner(MLP([3, 4, 1]), Square(), Void(), Adam())
     target = tmp_path / "model"
     save(runner, str(target))
 
     # Tamper with the version field.
-    meta_path = target / "meta.json"
-    data = json.loads(meta_path.read_text())
+    metapath = target / "meta.json"
+    data = json.loads(metapath.read_text())
     data["version"] = "999.0.0"
-    meta_path.write_text(json.dumps(data))
+    metapath.write_text(json.dumps(data))
 
     with pytest.raises(ValueError, match="version mismatch"):
         load(str(target))
 
 
-def test_restart_preserves_optimizer(tmp_path: Path):
+def test_restartpreservesoptimizer(tmp_path: Path):
     rng = np.random.default_rng(0)
     x = rng.standard_normal((16, 3))
     y = rng.standard_normal((16, 1))
@@ -102,31 +102,31 @@ def test_restart_preserves_optimizer(tmp_path: Path):
     target = tmp_path / "warm"
     save(runner, str(target))
 
-    new_runner = Runner(
+    newrunner = Runner(
         MLP([3, 4, 1], seed=1),
         Square(),
         Ridge(lam=0.001),
         Adam(lr=1e-3),
         epochs=2,
     )
-    new_runner.restart(str(target))
+    newrunner.restart(str(target))
     np.testing.assert_allclose(
-        new_runner.mlp.weights[0], runner.mlp.weights[0]
+        newrunner.mlp.weights[0], runner.mlp.weights[0]
     )
-    assert new_runner.adam.clock == 0
-    assert new_runner.adam.lr == 1e-3
+    assert newrunner.adam.clock == 0
+    assert newrunner.adam.lr == 1e-3
 
 
-def test_restart_rejects_mismatch(tmp_path: Path):
+def test_restartrejectsmismatch(tmp_path: Path):
     runner = Runner(MLP([3, 4, 1]), Square(), Void(), Adam())
     target = tmp_path / "m"
     save(runner, str(target))
-    new_runner = Runner(MLP([3, 8, 1]), Square(), Void(), Adam())
+    newrunner = Runner(MLP([3, 8, 1]), Square(), Void(), Adam())
     with pytest.raises(ValueError, match="Architecture mismatch"):
-        new_runner.restart(str(target))
+        newrunner.restart(str(target))
 
 
-def test_load_missing_adam(tmp_path: Path):
+def test_loadmissingadam(tmp_path: Path):
     runner = Runner(MLP([3, 4, 1]), Square(), Void(), Adam())
     target = tmp_path / "no_adam"
     save(runner, str(target))

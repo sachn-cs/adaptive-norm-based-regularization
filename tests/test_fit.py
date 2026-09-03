@@ -18,7 +18,7 @@ from regulo.penalty import (
 from regulo.score import Balanced, Mse
 
 
-def test_fit_decreases_loss():
+def test_fitdecreasesloss():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((64, 5))
     y = (
@@ -38,7 +38,7 @@ def test_fit_decreases_loss():
     assert runner.predict(x).shape == y.shape
 
 
-def test_classification_shape():
+def test_classificationshape():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((32, 4))
     y = rng.integers(0, 3, size=(32,))
@@ -58,7 +58,7 @@ def test_classification_shape():
     assert 0.0 <= Balanced()(y, preds) <= 1.0
 
 
-def test_train_each_penalty():
+def test_traineachpenalty():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((40, 4))
     y = rng.standard_normal((40, 1))
@@ -102,7 +102,7 @@ def test_earlystop():
     assert len(runner.history["train"]) < 500
 
 
-def test_scaler_consistency():
+def test_scalerconsistency():
     from regulo.tune import Scaler
 
     rng = np.random.default_rng(0)
@@ -123,7 +123,7 @@ def test_scaler_consistency():
     assert runner.predict(xtest).shape == (20, 1)
 
 
-def test_history_keys():
+def test_historykeys():
     runner = Runner(
         MLP([3, 2, 1]),
         Square(),
@@ -140,7 +140,7 @@ def test_history_keys():
     assert len(runner.history["val"]) == 0
 
 
-def test_history_with_val():
+def test_historywithval():
     runner = Runner(
         MLP([3, 2, 1]),
         Square(),
@@ -154,18 +154,18 @@ def test_history_with_val():
     assert len(runner.history["val"]) == 5
 
 
-def test_task_derived():
+def test_taskderived():
     assert Runner(MLP([3, 1]), Square(), Void(), Adam()).task == "regression"
     assert Runner(MLP([3, 2]), Softmax(), Void(), Adam()).task == "classification"
 
 
-def test_proba_regression_raises():
+def test_probaregressionraises():
     runner = Runner(MLP([3, 1]), Square(), Void(), Adam())
     with pytest.raises(NotImplementedError):
         runner.proba(np.zeros((1, 3)))
 
 
-def test_proba_sums_one():
+def test_probasumsone():
     runner = Runner(MLP([3, 4]), Softmax(), Void(), Adam(), epochs=1)
     rng = np.random.default_rng(0)
     x = rng.standard_normal((8, 3))
@@ -175,7 +175,7 @@ def test_proba_sums_one():
     np.testing.assert_allclose(proba.sum(axis=1), 1.0, atol=1e-6)
 
 
-def test_reset_reinitializes():
+def test_resetreinitializes():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((20, 3))
     y = rng.standard_normal((20, 1))
@@ -195,7 +195,7 @@ def test_reset_reinitializes():
     assert runner.adam.clock == 0
 
 
-def test_reproducible_seed():
+def test_reproducibleseed():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((40, 3))
     y = rng.standard_normal((40, 1))
@@ -210,7 +210,7 @@ def test_reproducible_seed():
     np.testing.assert_allclose(r1.history["train"], r2.history["train"])
 
 
-def test_nan_guard():
+def test_nanguard():
     runner = Runner(
         MLP([3, 4, 1]),
         Square(),
@@ -224,7 +224,7 @@ def test_nan_guard():
         runner.fit(np.zeros((10, 3)), np.zeros((10, 1)), seed=0)
 
 
-def test_earlystop_requires_val():
+def test_earlystoprequiresval():
     runner = Runner(
         MLP([3, 2, 1]),
         Square(),
@@ -237,7 +237,7 @@ def test_earlystop_requires_val():
         runner.fit(np.zeros((10, 3)), np.zeros((10, 1)))
 
 
-def test_validate_positive():
+def test_validatepositive():
     with pytest.raises(ValueError):
         Runner(MLP([3, 1]), Square(), Void(), Adam(), batch=0)
     with pytest.raises(ValueError):

@@ -124,20 +124,20 @@ class MLP:
         """
         if not self.post:
             raise RuntimeError("__call__ must be invoked before grad().")
-        grads_w: List[np.ndarray] = []
-        grads_b: List[np.ndarray] = []
+        wgrads: List[np.ndarray] = []
+        bgrads: List[np.ndarray] = []
         delta = dloss
         for i in reversed(range(self.layers)):
             prev = self.post[i]
             dw = prev.T @ delta
             db = np.sum(delta, axis=0, keepdims=True)
-            grads_w.insert(0, dw)
-            grads_b.insert(0, db)
+            wgrads.insert(0, dw)
+            bgrads.insert(0, db)
             if i > 0:
                 delta = delta @ self.weights[i].T
                 z = self.pre[i - 1]
                 delta *= (z > 0.0).astype(delta.dtype)
-        return {"weights": grads_w, "biases": grads_b}
+        return {"weights": wgrads, "biases": bgrads}
 
     def state(self) -> Dict[str, List[np.ndarray]]:
         """Return deep copies of all current parameters."""

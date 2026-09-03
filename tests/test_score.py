@@ -6,7 +6,7 @@ import pytest
 from regulo.score import Balanced, Mae, Metric, Mse, R2, Rmse
 
 
-def test_metric_abstract():
+def test_metricabstract():
     with pytest.raises(TypeError):
         Metric()
 
@@ -29,42 +29,42 @@ def test_rmse():
     assert np.isclose(Rmse()(truth, pred), 0.5)
 
 
-def test_r2_perfect():
+def test_r2perfect():
     y = np.array([1.0, 2.0, 3.0])
     assert R2()(y, y) == 1.0
 
 
-def test_r2_constant():
+def test_r2constant():
     truth = np.array([2.0, 2.0, 2.0])
     pred = np.array([1.0, 2.0, 3.0])
     assert R2()(truth, pred) == 0.0
 
 
-def test_r2_constant_perfect():
+def test_r2constantperfect():
     truth = np.array([2.0, 2.0, 2.0])
     pred = np.array([2.0, 2.0, 2.0])
     assert R2()(truth, pred) == 1.0
 
 
-def test_balanced_perfect():
+def test_balancedperfect():
     truth = np.array([0, 0, 1, 1, 2, 2])
     pred = np.array([0, 0, 1, 1, 2, 2])
     assert Balanced()(truth, pred) == 1.0
 
 
-def test_balanced_all_wrong():
+def test_balancedallwrong():
     truth = np.array([0, 1, 2])
     pred = np.array([1, 2, 0])
     assert Balanced()(truth, pred) == 0.0
 
 
-def test_balanced_single_class():
+def test_balancedsingleclass():
     truth = np.array([0, 0, 0])
     pred = np.array([0, 0, 0])
     assert Balanced()(truth, pred) == 1.0
 
 
-def test_balanced_imbalanced():
+def test_balancedimbalanced():
     truth = np.array([0, 0, 0, 0, 1, 1])
     pred = np.array([0, 0, 0, 0, 1, 0])
     expected = (1.0 + 0.5) / 2.0

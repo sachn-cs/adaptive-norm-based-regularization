@@ -123,7 +123,7 @@ def search(
     shape: List[int],
     method: str,
     grid: List[dict],
-    loss_fn: Loss,
+    loss: Loss,
     folds: int = 5,
     batch: int = 32,
     epochs: int = 500,
@@ -138,7 +138,7 @@ def search(
     folds.  A fresh network, penalty, and optimizer are created
     per fold to avoid state leakage.
 
-    The scoring metric is derived from ``loss_fn``: negative MSE for
+    The scoring metric is derived from ``loss``: negative MSE for
     :class:`regulo.loss.Square`, balanced accuracy for
     :class:`regulo.loss.Softmax`.
 
@@ -150,8 +150,8 @@ def search(
         raise ValueError("grid must contain at least one entry.")
     if folds < 2:
         raise ValueError("folds must be at least 2.")
-    task = "classification" if loss_fn.name == "softmax" else "regression"
-    best_score = -float("inf")
+    task = "classification" if loss.name == "softmax" else "regression"
+    top = -float("inf")
     best: Optional[dict] = None
     from regulo.score import Balanced, Mse
 
@@ -174,7 +174,7 @@ def search(
             adam = Adam(lr=lr)
             runner = Runner(
                 mlp,
-                loss_fn,
+                loss,
                 penalty,
                 adam,
                 batch=batch,
@@ -191,17 +191,17 @@ def search(
             )
             preds = runner.predict(xval)
             if task == "classification":
-                class_preds = runner.classify(xval)
-                score = metric(yval, class_preds)
+                classified = runner.classify(xval)
+                score = metric(yval, classified)
             else:
                 score = -metric(yval, preds)
             scores.append(score)
 
         avg = float(np.mean(scores))
-        if avg > best_score:
-            best_score = avg
+        if avg > top:
+            top = avg
             best = dict(params)
 
     if best is None:
         raise RuntimeError("No grid point evaluated.")
-    return best, best_score
+    return best, top

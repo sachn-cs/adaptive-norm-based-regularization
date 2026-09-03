@@ -6,33 +6,33 @@ import pytest
 from regulo.tune import Scaler, kfold, resolve, search
 
 
-def test_kfold_count():
+def test_kfoldcount():
     folds = list(kfold(100, 5, seed=0))
     assert len(folds) == 5
     for train, val in folds:
         assert len(train) + len(val) == 100
 
 
-def test_kfold_partition():
+def test_kfoldpartition():
     folds = list(kfold(50, 5, seed=0))
-    val_union = np.concatenate([v for _, v in folds])
-    assert sorted(val_union.tolist()) == list(range(50))
+    valunion = np.concatenate([v for _, v in folds])
+    assert sorted(valunion.tolist()) == list(range(50))
 
 
-def test_kfold_reproducible():
+def test_kfoldreproducible():
     a = [v.tolist() for _, v in kfold(50, 5, seed=42)]
     b = [v.tolist() for _, v in kfold(50, 5, seed=42)]
     assert a == b
 
 
-def test_kfold_rejects():
+def test_kfoldrejects():
     with pytest.raises(ValueError):
         list(kfold(100, 1))
     with pytest.raises(ValueError):
         list(kfold(2, 5))
 
 
-def test_scaler_zscore():
+def test_scalerzscore():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((100, 4)) * 3.0 + 5.0
     s = Scaler().fit(x)
@@ -41,7 +41,7 @@ def test_scaler_zscore():
     np.testing.assert_allclose(out.std(axis=0), 1.0, atol=1e-10)
 
 
-def test_scaler_fittransform():
+def test_scalerfittransform():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((30, 3))
     s = Scaler().fit(x[:20])
@@ -50,33 +50,33 @@ def test_scaler_fittransform():
     )
 
 
-def test_scaler_constant_column():
+def test_scalerconstantcolumn():
     x = np.array([[1.0, 2.0], [1.0, 3.0], [1.0, 4.0]])
     out = Scaler().fittransform(x)
     assert np.all(np.isfinite(out))
 
 
-def test_scaler_transform_unfit():
+def test_scalertransformunfit():
     s = Scaler()
     with pytest.raises(RuntimeError):
         s.transform(np.zeros((3, 2)))
 
 
-def test_scaler_repr():
+def test_scalerrepr():
     s = Scaler()
     assert "unfit" in repr(s)
     s.fit(np.random.randn(10, 2))
     assert "Scaler(mean=" in repr(s)
 
 
-def test_resolve_ridge():
+def test_resolveridge():
     x = np.random.randn(50, 4)
     p = resolve("ridge", {"lam": 0.01}, x)
     assert p.name == "ridge"
     assert p.lam == 0.01
 
 
-def test_resolve_covridge_gram():
+def test_resolvecovridgegram():
     x = np.random.randn(50, 4)
     p = resolve("covridge", {"lambda1": 0.1, "lambda2": 0.01}, x)
     assert p.lambda1 == 0.1
@@ -84,18 +84,18 @@ def test_resolve_covridge_gram():
     assert p.csqrt.shape == (4, 4)
 
 
-def test_resolve_unknown():
+def test_resolveunknown():
     with pytest.raises(ValueError):
         resolve("nonsense", {}, np.zeros((10, 2)))
 
 
-def test_resolve_extra_keys():
+def test_resolveextrakeys():
     x = np.zeros((10, 3))
     with pytest.raises(ValueError):
         resolve("ridge", {"lam": 0.1, "garbage": 1.0}, x)
 
 
-def test_search_best():
+def test_searchbest():
     from regulo.loss import Square
 
     rng = np.random.default_rng(0)
@@ -111,7 +111,7 @@ def test_search_best():
         shape=[4, 4, 1],
         method="ridge",
         grid=grid,
-        loss_fn=Square(),
+        loss=Square(),
         folds=3,
         epochs=10,
     )
@@ -119,7 +119,7 @@ def test_search_best():
     assert score <= 0
 
 
-def test_search_empty_grid():
+def test_searchemptygrid():
     from regulo.loss import Square
 
     with pytest.raises(ValueError):
@@ -129,11 +129,11 @@ def test_search_empty_grid():
             shape=[2, 1],
             method="ridge",
             grid=[],
-            loss_fn=Square(),
+            loss=Square(),
         )
 
 
-def test_search_reproducible():
+def test_searchreproducible():
     from regulo.loss import Square
 
     rng = np.random.default_rng(0)
@@ -149,7 +149,7 @@ def test_search_reproducible():
     assert score_a == score_b
 
 
-def test_search_classification():
+def test_searchclassification():
     from regulo.loss import Softmax
 
     rng = np.random.default_rng(0)
@@ -163,7 +163,7 @@ def test_search_classification():
     assert 0.0 <= score <= 1.0
 
 
-def test_search_rejects_folds():
+def test_searchrejectsfolds():
     from regulo.loss import Square
 
     with pytest.raises(ValueError):
@@ -173,6 +173,6 @@ def test_search_rejects_folds():
             shape=[2, 1],
             method="ridge",
             grid=[{"lam": 0.1}],
-            loss_fn=Square(),
+            loss=Square(),
             folds=1,
         )

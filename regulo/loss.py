@@ -106,8 +106,8 @@ class Softmax(Loss):
             )
         # Numerically stable softmax.
         shifted = logits - np.max(logits, axis=1, keepdims=True)
-        exp_shifted = np.exp(shifted)
-        probs = exp_shifted / np.sum(exp_shifted, axis=1, keepdims=True)
+        e = np.exp(shifted)
+        probs = e / np.sum(e, axis=1, keepdims=True)
         # Floor at 1e-15 so confident-correct predictions yield
         # exactly 0.0 loss instead of log(1 + 1e-15).
         clipped = np.clip(probs, 1e-15, 1.0)
@@ -115,8 +115,8 @@ class Softmax(Loss):
 
     def grad(self, logits: np.ndarray, target: np.ndarray) -> np.ndarray:
         shifted = logits - np.max(logits, axis=1, keepdims=True)
-        exp_shifted = np.exp(shifted)
-        probs = exp_shifted / np.sum(exp_shifted, axis=1, keepdims=True)
+        e = np.exp(shifted)
+        probs = e / np.sum(e, axis=1, keepdims=True)
         grad = probs.copy()
         grad[np.arange(len(target)), target] -= 1.0
         return grad / logits.shape[0]

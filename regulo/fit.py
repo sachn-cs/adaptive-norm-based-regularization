@@ -21,8 +21,8 @@ Gradient flow
 Each update step computes:
 
 1. ``y_pred = mlp(xchunk)``
-2. ``loss = loss_fn.value(y_pred, ychunk)``
-3. ``dloss = loss_fn.grad(y_pred, ychunk)``
+2. ``cost = loss.value(ypred, ychunk)``
+3. ``dloss = loss.grad(ypred, ychunk)``
 4. ``grads = mlp.grad(dloss)``
 5. ``grads["weights"][i] += penalty.grad(weight_i, i)`` for layers
    where ``penalty.applies(i)``.
@@ -123,18 +123,18 @@ class Runner:
             losses: List[float] = []
             for start in range(0, count, self.batch):
                 end = min(start + self.batch, count)
-                batch_idx = indices[start:end]
-                xchunk = xtrain[batch_idx]
-                ychunk = ytrain[batch_idx]
+                chunk = indices[start:end]
+                xchunk = xtrain[chunk]
+                ychunk = ytrain[chunk]
 
                 ypred = self.mlp(xchunk)
-                loss = self.loss.value(ypred, ychunk)
+                cost = self.loss.value(ypred, ychunk)
 
                 # Penalty value and gradient over applicable layers.
                 for i, w in enumerate(self.mlp.weights):
                     if self.penalty.applies(i):
-                        loss += self.penalty.value(w, i)
-                losses.append(loss)
+                        cost += self.penalty.value(w, i)
+                losses.append(cost)
 
                 dloss = self.loss.grad(ypred, ychunk)
                 grads = self.mlp.grad(dloss)
@@ -201,8 +201,8 @@ class Runner:
             )
         logits = self.mlp(x)
         shifted = logits - np.max(logits, axis=1, keepdims=True)
-        exp_shifted = np.exp(shifted)
-        return exp_shifted / np.sum(exp_shifted, axis=1, keepdims=True)
+        e = np.exp(shifted)
+        return e / np.sum(e, axis=1, keepdims=True)
 
     def classify(self, x: np.ndarray) -> np.ndarray:
         """Generate class index predictions (classification only)."""

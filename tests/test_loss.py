@@ -6,101 +6,101 @@ import pytest
 from regulo.loss import Loss, Softmax, Square
 
 
-def test_loss_abstract():
+def test_lossabstract():
     with pytest.raises(TypeError):
         Loss()
 
 
-def test_square_perfect():
+def test_squareperfect():
     y = np.array([[1.0], [2.0], [3.0]])
-    loss_fn = Square()
-    assert loss_fn.value(y, y) == 0.0
-    np.testing.assert_allclose(loss_fn.grad(y, y), 0.0)
+    loss = Square()
+    assert loss.value(y, y) == 0.0
+    np.testing.assert_allclose(loss.grad(y, y), 0.0)
 
 
-def test_square_known():
+def test_squareknown():
     ypred = np.array([[0.0], [2.0]])
     truth = np.array([[1.0], [1.0]])
-    loss_fn = Square()
-    assert loss_fn.value(ypred, truth) == 1.0
+    loss = Square()
+    assert loss.value(ypred, truth) == 1.0
 
 
-def test_square_grad_shape():
+def test_squaregradshape():
     ypred = np.random.randn(8, 3)
     truth = np.random.randn(8, 3)
-    loss_fn = Square()
-    grad = loss_fn.grad(ypred, truth)
+    loss = Square()
+    grad = loss.grad(ypred, truth)
     assert grad.shape == (8, 3)
 
 
-def test_square_single():
+def test_squaresingle():
     ypred = np.array([[5.0]])
     truth = np.array([[3.0]])
-    loss_fn = Square()
-    assert loss_fn.value(ypred, truth) == 4.0
-    np.testing.assert_allclose(loss_fn.grad(ypred, truth), [[4.0]])
+    loss = Square()
+    assert loss.value(ypred, truth) == 4.0
+    np.testing.assert_allclose(loss.grad(ypred, truth), [[4.0]])
 
 
-def test_softmax_known():
+def test_softmaxknown():
     logits = np.array([[1.0, 0.0]])
     target = np.array([0])
-    loss_fn = Softmax()
-    loss = loss_fn.value(logits, target)
+    loss = Softmax()
+    loss = loss.value(logits, target)
     expected = float(np.log(1 + np.exp(-1)))
     assert np.isclose(loss, expected)
 
 
-def test_softmax_perfect():
+def test_softmaxperfect():
     logits = np.array([[1e6, -1e6, -1e6]])
     target = np.array([0])
-    loss_fn = Softmax()
-    assert loss_fn.value(logits, target) == 0.0
+    loss = Softmax()
+    assert loss.value(logits, target) == 0.0
 
 
-def test_softmax_grad_shape():
+def test_softmaxgradshape():
     logits = np.random.randn(8, 3)
     target = np.random.randint(0, 3, size=(8,))
-    loss_fn = Softmax()
-    grad = loss_fn.grad(logits, target)
+    loss = Softmax()
+    grad = loss.grad(logits, target)
     assert grad.shape == (8, 3)
 
 
-def test_softmax_grad_sum_zero():
+def test_softmaxgradsumzero():
     logits = np.random.randn(8, 3)
     target = np.random.randint(0, 3, size=(8,))
     grad = Softmax().grad(logits, target)
     np.testing.assert_allclose(np.sum(grad, axis=1), 0.0, atol=1e-12)
 
 
-def test_softmax_rejects_float():
+def test_softmaxrejectsfloat():
     logits = np.array([[1.0, 0.0]])
     target = np.array([0.5])
-    loss_fn = Softmax()
+    loss = Softmax()
     with pytest.raises(TypeError):
-        loss_fn.value(logits, target)
+        loss.value(logits, target)
 
 
-def test_softmax_rejects_out_of_range():
+def test_softmaxrejectsoutofrange():
     logits = np.array([[1.0, 0.0]])
     target = np.array([5])
-    loss_fn = Softmax()
+    loss = Softmax()
     with pytest.raises(ValueError):
-        loss_fn.value(logits, target)
+        loss.value(logits, target)
 
 
-def test_softmax_single_class():
+def test_softmaxsingleclass():
     logits = np.array([[0.0], [1.0], [2.0]])
     target = np.array([0, 0, 0])
-    loss_fn = Softmax()
-    assert np.isclose(loss_fn.value(logits, target), 0.0)
-    np.testing.assert_allclose(loss_fn.grad(logits, target), 0.0)
+    loss = Softmax()
+    assert np.isclose(loss.value(logits, target), 0.0)
+    np.testing.assert_allclose(loss.grad(logits, target), 0.0)
 
 
-def test_loss_repr():
+def test_lossrepr():
     assert "Square" in repr(Square())
     assert "Softmax" in repr(Softmax())
 
 
-def test_loss_names():
+def test_lossnames():
     assert Softmax().name == "softmax"
     assert Square().name == "square"

@@ -89,9 +89,9 @@ class Adam:
             ``params``, containing the post-update arrays.
         """
         self.clock += 1
-        updated: Dict[str, List[np.ndarray]] = {}
+        next: Dict[str, List[np.ndarray]] = {}
         for key in params:
-            updated[key] = []
+            next[key] = []
             if key not in self.mean:
                 self.mean[key] = []
                 self.variance[key] = []
@@ -111,11 +111,11 @@ class Adam:
                 self.variance[key][i] = v
                 mhat = m / (1.0 - self.beta1**self.clock)
                 vhat = v / (1.0 - self.beta2**self.clock)
-                updated_p = p - self.lr * mhat / (
+                updated = p - self.lr * mhat / (
                     np.sqrt(vhat) + self.epsilon
                 )
-                updated[key].append(updated_p)
-        return updated
+                next[key].append(updated)
+        return next
 
     def reset(self) -> None:
         """Reset all internal state to the initial condition."""

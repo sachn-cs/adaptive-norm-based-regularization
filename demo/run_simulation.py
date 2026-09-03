@@ -69,7 +69,7 @@ def evaluate(
             shape,
             method,
             grid,
-            loss_fn=Square(),
+            loss=Square(),
             folds=3,
             epochs=max(50, epochs // 2),
             lr=1e-3,
@@ -110,7 +110,7 @@ def split(
 
 
 def execute(
-    dgp_factory,
+    factory,
     name: str,
     shape: List[int],
     reps: int,
@@ -124,7 +124,7 @@ def execute(
             print(f"\n{name} -- rho={rho}, noise={noise}")
             results: Dict[str, List[float]] = {m: [] for m in METHODS}
             for rep in range(reps):
-                x, y = dgp_factory(rho, noise, rep)
+                x, y = factory(rho, noise, rep)
                 xtrain, xtest, ytrain, ytest = split(
                     x, y, frac=0.25, seed=seed + rep
                 )

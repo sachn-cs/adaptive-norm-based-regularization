@@ -110,8 +110,8 @@ def synth(
         info = rng.multivariate_normal(mean=np.zeros(k), cov=cov, size=n)
     else:
         info = np.empty((n, 0))
-    noise_x = rng.standard_normal(size=(n, p - k))
-    x = np.hstack([info, noise_x])
+    extra = rng.standard_normal(size=(n, p - k))
+    x = np.hstack([info, extra])
     theta = rng.normal(0.0, tau, size=k) if k > 0 else np.zeros(0)
     if k == 0:
         y = np.zeros(n)

@@ -93,15 +93,15 @@ def load(path: str) -> Runner:
     with open(p / "meta.json") as f:
         data = json.load(f)
     major = data["version"].split(".")[0]
-    lib_major = __version__.split(".")[0]
-    if major != lib_major:
+    lib = __version__.split(".")[0]
+    if major != lib:
         raise ValueError(
             f"version mismatch: on-disk {data['version']!r}, "
             f"library {__version__!r}."
         )
     mlp = MLP(data["shape"])
-    loss_cls = losslookup(data["loss"])
-    loss = loss_cls(**data["lossargs"])
+    cls = losslookup(data["loss"])
+    loss = cls(**data["lossargs"])
     penalty = penaltylookup(data)
     adam = Adam(**data["adam"])
 

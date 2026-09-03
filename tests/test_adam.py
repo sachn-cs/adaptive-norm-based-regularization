@@ -6,15 +6,15 @@ import pytest
 from regulo.adam import Adam
 
 
-def test_updates_weights():
+def test_updatesweights():
     opt = Adam(lr=1e-3)
     params = {"weights": [np.ones((2, 2))]}
     grads = {"weights": [np.ones((2, 2))]}
-    new_params = opt.step(params, grads)
-    assert not np.array_equal(new_params["weights"][0], params["weights"][0])
+    next = opt.step(params, grads)
+    assert not np.array_equal(next["weights"][0], params["weights"][0])
 
 
-def test_moment_estimates():
+def test_momentestimates():
     opt = Adam(lr=0.1, beta1=0.9, beta2=0.999)
     params = {"weights": [np.zeros((1, 1))]}
     grads = {"weights": [np.ones((1, 1))]}
@@ -37,23 +37,23 @@ def test_reset():
     assert opt.variance == {}
 
 
-def test_zero_gradient():
+def test_zerogradient():
     opt = Adam(lr=1e-3)
     params = {"weights": [np.ones((2, 2))]}
     grads = {"weights": [np.zeros((2, 2))]}
-    new_params = opt.step(params, grads)
-    np.testing.assert_allclose(new_params["weights"][0], params["weights"][0])
+    next = opt.step(params, grads)
+    np.testing.assert_allclose(next["weights"][0], params["weights"][0])
 
 
-def test_large_gradient():
+def test_largegradient():
     opt = Adam(lr=1e-3)
     params = {"weights": [np.zeros((1, 1))]}
     grads = {"weights": [np.full((1, 1), 1e6)]}
-    new_params = opt.step(params, grads)
-    assert np.isfinite(new_params["weights"][0])
+    next = opt.step(params, grads)
+    assert np.isfinite(next["weights"][0])
 
 
-def test_multiple_groups():
+def test_multiplegroups():
     opt = Adam(lr=1e-3)
     params = {
         "weights": [np.ones((2, 2)), np.ones((2, 1))],
@@ -63,19 +63,19 @@ def test_multiple_groups():
         "weights": [np.ones((2, 2)), np.ones((2, 1))],
         "biases": [np.ones((1, 2)), np.ones((1, 1))],
     }
-    new_params = opt.step(params, grads)
-    assert len(new_params["weights"]) == 2
-    assert len(new_params["biases"]) == 2
+    next = opt.step(params, grads)
+    assert len(next["weights"]) == 2
+    assert len(next["biases"]) == 2
     for i in range(2):
         assert not np.array_equal(
-            new_params["weights"][i], params["weights"][i]
+            next["weights"][i], params["weights"][i]
         )
         assert not np.array_equal(
-            new_params["biases"][i], params["biases"][i]
+            next["biases"][i], params["biases"][i]
         )
 
 
-def test_rejects_invalid_beta():
+def test_rejectsinvalidbeta():
     with pytest.raises(ValueError):
         Adam(beta1=1.0)
     with pytest.raises(ValueError):
@@ -84,14 +84,14 @@ def test_rejects_invalid_beta():
         Adam(beta1=-0.1)
 
 
-def test_rejects_non_positive_lr():
+def test_rejectsnonpositivelr():
     with pytest.raises(ValueError):
         Adam(lr=0.0)
     with pytest.raises(ValueError):
         Adam(lr=-1.0)
 
 
-def test_rejects_non_positive_epsilon():
+def test_rejectsnonpositiveepsilon():
     with pytest.raises(ValueError):
         Adam(epsilon=0.0)
     with pytest.raises(ValueError):
