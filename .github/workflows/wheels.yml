@@ -24,7 +24,7 @@ jobs:
 
       - name: Set up Docker Buildx for cibuildwheel
         if: matrix.os == 'ubuntu-latest'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build wheels with cibuildwheel
         uses: pypa/cibuildwheel@v3
